@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid">
+  <section>
+    <h2>Create runbook</h2>
+    <form action="/generate" method="post">
+      <label>Title <input name="title" required placeholder="WordPress 502 after deployment"></label>
+      <label>System / Client <input name="system" placeholder="Client WordPress / Homelab Kubernetes"></label>
+      <label>Runbook type
+        <select name="runbook_type">
+          <option>Troubleshooting</option>
+          <option>Incident Resolution</option>
+          <option>Maintenance</option>
+          <option>Deployment</option>
+          <option>Recovery</option>
+        </select>
+      </label>
+      <label>Tags <input name="tags" placeholder="wordpress,kubernetes,nginx"></label>
+      <label>Raw notes / events / commands
+        <textarea name="raw_notes" required placeholder="Paste shell output, incident notes, Kubernetes events, etc."></textarea>
+      </label>
+      <button type="submit">Generate preview</button>
+    </form>
+  </section>
+  <aside class="card">
+    <h2>History</h2>
+    {% if runbooks %}
+      <ul>
+      {% for runbook in runbooks %}
+        <li><a href="/runbooks/{{ runbook.id }}">{{ runbook.title }}</a><br><small class="muted">{{ runbook.system }} · {{ runbook.updated_at }}</small></li>
+      {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No saved runbooks yet.</p>
+    {% endif %}
+    <h3>BookStack</h3>
+    <p class="muted">Publishing is {{ "configured" if bookstack_configured else "not configured" }}. Local generation and saving do not require secrets.</p>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{
+  "source": "demo-sermon",
+  "clips": [
+    {
+      "title": "Promise Grace Faith Mercy Lord",
+      "description": "A sermon highlight about alone, faith, god, grace: But don't miss this promise: grace meets you in the middle of your failure. When you feel alone, the Lord is near, and mercy is new every morning. So respond with faith this...",
+      "start": 38,
+      "end": 78,
+      "score": 51.0,
+      "reason": "Keywords: alone, faith, god, grace, lord, mercy, pray, promise; duration 40s",
+      "hashtags": [
+        "#sermonclip",
+        "#faith",
+        "#church",
+        "#prayer",
+        "#grace"
+      ],
+      "text": "But don't miss this promise: grace meets you in the middle of your failure. When you feel alone, the Lord is near, and mercy is new every morning. So respond with faith this week and take one step of obedience. Let us pray and ask God to make this truth real in our hearts.",
+      "start_timestamp": "00:38",
+      "end_timestamp": "01:18",
+      "duration": 40
+    }
+  ]
+}

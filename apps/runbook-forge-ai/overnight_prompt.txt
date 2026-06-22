@@ -1,0 +1,15 @@
+You are Hermes Agent running unattended overnight for Brett Johnson. Do not send messages to Brett. Work only in /opt/data/projects/runbook-forge-ai. Build the Runbook Forge AI MVP described in RUNBOOK.md.
+
+Strict requirements:
+1. Read RUNBOOK.md first.
+2. Implement a working local app. Prefer Python + FastAPI/Jinja/SQLite via uv. If FastAPI setup fails, use Flask. If dependency install fails, use Python stdlib http.server with SQLite.
+3. The app must support creating structured runbooks from raw notes with a deterministic local generator, so it works without AI secrets. If an OpenAI-compatible provider is available, you may add optional AI integration, but the fallback must remain working.
+4. Add BookStack publishing support behind env vars, but do not require secrets for local use and do not print secret values.
+5. Add README.md with setup, usage, env vars, smoke checks, and future Kubernetes deployment notes.
+6. Add tests and/or a smoke-test script that verifies generating and saving a sample runbook.
+7. Run the verification commands for real.
+8. Log all notable actions and command outputs to overnight-build.log.
+9. Write MORNING_SUMMARY.md with: what was built, files created/changed, commands/tests run and results, what works, blockers, and next steps.
+10. Keep going until you have a working artifact or hit a genuine blocker. If blocked, write exactly why and what is needed next.
+
+Important delivery instruction: do not use send_message and do not attempt to notify Brett. The morning cron job will read MORNING_SUMMARY.md and overnight-build.log and summarize once.

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="/">← Back</a></p>
+<h2>Preview and edit</h2>
+<form action="/save" method="post">
+  <input type="hidden" name="title" value="{{ title }}">
+  <input type="hidden" name="system" value="{{ system }}">
+  <input type="hidden" name="runbook_type" value="{{ runbook_type }}">
+  <input type="hidden" name="tags" value="{{ tags }}">
+  <input type="hidden" name="raw_notes" value="{{ raw_notes }}">
+  <textarea name="markdown" style="min-height: 560px">{{ markdown }}</textarea>
+  <button type="submit">Save runbook</button>
+</form>
+{% endblock %}

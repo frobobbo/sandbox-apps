@@ -1,0 +1,132 @@
+# Runbook Forge AI
+
+Local MVP for turning raw troubleshooting notes, Kubernetes events, shell output, and incident notes into structured markdown runbooks. It works without AI secrets by using a deterministic local generator, and it can optionally publish saved runbooks to BookStack when API environment variables are configured.
+
+## What it does
+
+- Web form for title, system/client, runbook type, tags, and raw notes.
+- Generates markdown with these sections:
+  - Summary
+  - Symptoms
+  - Impact
+  - Likely Root Cause
+  - Resolution Steps
+  - Commands Used
+  - Verification
+  - Prevention Checklist
+  - Escalation / Follow-up
+- Preview/edit page before saving.
+- SQLite history of saved runbooks.
+- Optional BookStack publishing behind environment variables.
+- Smoke-test script that generates and saves a sample runbook.
+
+## Setup
+
+```bash
+cd /opt/data/projects/runbook-forge-ai
+uv sync
+```
+
+## Run locally
+
+```bash
+cd /opt/data/projects/runbook-forge-ai
+uv run uvicorn runbook_forge.main:app --host 127.0.0.1 --port 8000
+```
+
+Open http://127.0.0.1:8000 and paste incident notes into the form.
+
+The default SQLite database is:
+
+```text
+/opt/data/projects/runbook-forge-ai/data/runbooks.sqlite3
+```
+
+Override it with:
+
+```bash
+export RUNBOOK_FORGE_DB=/path/to/runbooks.sqlite3
+```
+
+## Environment variables
+
+Local generation and saving require no secrets.
+
+Optional BookStack publishing:
+
+```bash
+export BOOKSTACK_BASE_URL=https://bookstack.example.com
+export BOOKSTACK_TOKEN_ID=***
+export BOOKSTACK_TOKEN_SECRET=***
+export BOOKSTACK_BOOK_ID=123        # optional default target
+export BOOKSTACK_CHAPTER_ID=456     # optional default target; preferred when publishing into a chapter
+```
+
+The app never displays token values. If BookStack env vars are missing, local generation and SQLite saving still work.
+
+Optional AI placeholders:
+
+```bash
+export OPENAI_BASE_URL=https://api.openai.com/v1
+export OPENAI_API_KEY=***
+```
+
+The current MVP keeps deterministic generation as the dependable fallback. The AI hook is intentionally a no-op until provider-specific prompting and tests are added.
+
+## Smoke checks
+
+```bash
+cd /opt/data/projects/runbook-forge-ai
+uv run pytest -q
+uv run python -m runbook_forge.smoke
+uv run uvicorn runbook_forge.main:app --host 127.0.0.1 --port 8000
+curl http://127.0.0.1:8000/health
+```
+
+Expected health response:
+
+```text
+ok
+```
+
+## Docker
+
+Build and run:
+
+```bash
+docker build -t runbook-forge-ai:local .
+docker run --rm -p 8000:8000 -v runbook-forge-data:/app/data runbook-forge-ai:local
+```
+
+## Future Kubernetes deployment notes
+
+Initial homelab shape:
+
+```yaml
+namespace: ops-tools
+app: runbook-forge-ai
+ingress: runbook-forge.johnsons.casa
+database: sqlite on a PVC initially, Postgres later
+```
+
+Recommended Kubernetes objects:
+
+- Namespace `ops-tools`.
+- Deployment running the container from this repo.
+- PVC mounted at `/app/data` for SQLite persistence.
+- Service on port 8000.
+- Ingress for `runbook-forge.johnsons.casa` with TLS.
+- Secret containing `BOOKSTACK_BASE_URL`, `BOOKSTACK_TOKEN_ID`, `BOOKSTACK_TOKEN_SECRET`, and optional default target IDs.
+- Later: replace SQLite with Postgres if multiple replicas are needed.
+
+## Project layout
+
+```text
+runbook_forge/
+  main.py        FastAPI routes
+  generator.py   deterministic markdown generator
+  storage.py     SQLite persistence
+  bookstack.py   optional BookStack API publishing
+templates/       Jinja templates
+tests/           pytest tests
+```

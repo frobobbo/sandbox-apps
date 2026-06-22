@@ -1,0 +1,25 @@
+from __future__ import annotations
+from pathlib import Path
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
+from fastapi.templating import Jinja2Templates
+from .checks import evaluate_site, fetch_basic_site_check, summarize_report
+from .storage import CarePulseStore
+BASE = Path(__file__).resolve().parent.parent
+app = FastAPI(title='WP CarePulse')
+templates = Jinja2Templates(directory=str(BASE / 'templates'))
+store = CarePulseStore(BASE / 'data' / 'carepulse.sqlite3')
+@app.get('/health')
+def health(): return {'status': 'ok', 'app': 'wp-carepulse'}
+@app.get('/', response_class=HTMLResponse)
+def index(request: Request): return templates.TemplateResponse(request, 'index.html', {'sites': store.list_sites(), 'checks': store.latest_checks()})
+@app.post('/sites')
+def add_site(name: str = Form(...), url: str = Form(...), client: str = Form('')):
+    site_id = store.add_site(name, url, client); check = fetch_basic_site_check(name, url); store.save_check(site_id, check); return RedirectResponse('/', status_code=303)
+@app.post('/manual-check')
+def manual_check(name: str = Form(...), url: str = Form(...), client: str = Form(''), http_status: int = Form(200), latency_ms: int = Form(250), ssl_days_remaining: int = Form(60), wordpress_version: str = Form('unknown'), update_count: int = Form(0), backup_age_hours: int = Form(24)):
+    site_id = store.add_site(name, url, client); check = evaluate_site(name, url, http_status, latency_ms, ssl_days_remaining, wordpress_version, update_count, backup_age_hours, {}); store.save_check(site_id, check); return RedirectResponse('/', status_code=303)
+@app.get('/report', response_class=PlainTextResponse)
+def report():
+    checks=[evaluate_site(r['name'], r['url'], r['http_status'], r['latency_ms'], r['ssl_days_remaining'], r['wordpress_version'], r['update_count'], r['backup_age_hours'], {}) for r in store.latest_checks()]
+    return summarize_report(checks)

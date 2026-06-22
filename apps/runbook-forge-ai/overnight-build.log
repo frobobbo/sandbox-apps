@@ -1,0 +1,1264 @@
+=== Runbook Forge AI overnight build launch ===
+2026-06-22T02:13:59+00:00
+cwd=/opt/data/projects/runbook-forge-ai
+
+[2026-06-22T02:14:16+00:00] Read RUNBOOK.md first and starting repository inspection.
+  ┊ review diff
+a/pyproject.toml → b/pyproject.toml
+@@ -0,0 +1,21 @@
++[project]
++name = "runbook-forge-ai"
++version = "0.1.0"
++description = "Local MVP that turns raw ops notes into structured runbooks with optional BookStack publishing."
++readme = "README.md"
++requires-python = ">=3.13"
++dependencies = [
++    "fastapi>=0.115.0",
++    "uvicorn[standard]>=0.30.0",
++    "jinja2>=3.1.4",
++    "python-multipart>=0.0.9",
++]
++
++[dependency-groups]
++dev = [
++    "pytest>=8.3.0",
++]
++
++[tool.pytest.ini_options]
++testpaths = ["tests"]
++pythonpath = ["."]
+  ┊ review diff
+a/tests/test_generator.py → b/tests/test_generator.py
+@@ -0,0 +1,38 @@
++from runbook_forge.generator import generate_runbook
++
++
++def test_generate_runbook_creates_required_sections_and_extracts_commands():
++    notes = """
++    Client reported WordPress was returning 502 errors after deploy.
++    kubectl get pods -n wordpress showed crashloopbackoff.
++    Error: database connection refused.
++    Fixed by restarting mysql and rolling deployment.
++    kubectl rollout restart deployment/site -n wordpress
++    Verified with curl -I https://example.com returning HTTP/2 200.
++    """
++
++    markdown = generate_runbook(
++        title="WordPress 502 after deploy",
++        system="Client WordPress",
++        runbook_type="Incident Resolution",
++        tags="wordpress,kubernetes,502",
++        raw_notes=notes,
++    )
++
++    for heading in [
++        "## Summary",
++        "## Symptoms",
++        "## Impact",
++        "## Likely Root Cause",
++        "## Resolution Steps",
++        "## Commands Used",
++        "## Verification",
++        "## Prevention Checklist",
++        "## Escalation / Follow-up",
++    ]:
++        assert heading in markdown
++
++    assert "# WordPress 502 after deploy" in markdown
++    assert "kubectl get pods -n wordpress" in markdown
++    assert "kubectl rollout restart deployment/site -n wordpress" in markdown
++    assert "Client WordPress" in markdown
+  ┊ review diff
+a/tests/test_storage.py → b/tests/test_storage.py
+@@ -0,0 +1,33 @@
++from pathlib import Path
++
++from runbook_forge.generator import generate_runbook
++from runbook_forge.storage import RunbookStore
++
++
++def test_runbook_store_saves_and_loads_generated_runbook(tmp_path: Path):
++    db_path = tmp_path / "runbooks.sqlite3"
++    store = RunbookStore(db_path)
++    markdown = generate_runbook(
++        title="AdGuard DNS outage",
++        system="Homelab DNS",
++        runbook_type="Troubleshooting",
++        tags="dns,homelab",
++        raw_notes="dig failed. systemctl restart AdGuardHome. verified with dig johnsons.casa.",
++    )
++
++    saved = store.create_runbook(
++        title="AdGuard DNS outage",
++        system="Homelab DNS",
++        runbook_type="Troubleshooting",
++        tags="dns,homelab",
++        raw_notes="dig failed",
++        markdown=markdown,
++    )
++    loaded = store.get_runbook(saved.id)
++    all_runbooks = store.list_runbooks()
++
++    assert loaded is not None
++    assert loaded.id == saved.id
++    assert loaded.title == "AdGuard DNS outage"
++    assert "## Verification" in loaded.markdown
++    assert len(all_runbooks) == 1
+
+[2026-06-22T02:14:48+00:00] RED: running tests before implementation.
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+Using CPython 3.13.5 interpreter at: /usr/bin/python3
+Creating virtual environment at: .venv
+Downloading pydantic-core (2.0MiB)
+Downloading pygments (1.2MiB)
+Downloading uvloop (4.2MiB)
+ Downloaded pygments
+ Downloaded pydantic-core
+ Downloaded uvloop
+Installed 27 packages in 59ms
+
+==================================== ERRORS ====================================
+___________________ ERROR collecting tests/test_generator.py ___________________
+ImportError while importing test module '/opt/data/projects/runbook-forge-ai/tests/test_generator.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_generator.py:1: in <module>
+    from runbook_forge.generator import generate_runbook
+E   ModuleNotFoundError: No module named 'runbook_forge'
+____________________ ERROR collecting tests/test_storage.py ____________________
+ImportError while importing test module '/opt/data/projects/runbook-forge-ai/tests/test_storage.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_storage.py:3: in <module>
+    from runbook_forge.generator import generate_runbook
+E   ModuleNotFoundError: No module named 'runbook_forge'
+=========================== short test summary info ============================
+ERROR tests/test_generator.py
+ERROR tests/test_storage.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.05s
+  ┊ review diff
+a/runbook_forge/__init__.py → b/runbook_forge/__init__.py
+@@ -0,0 +1,4 @@
++"""Runbook Forge AI package."""
++
++__all__ = ["__version__"]
++__version__ = "0.1.0"
+  ┊ review diff
+a/runbook_forge/generator.py → b/runbook_forge/generator.py
+@@ -0,0 +1,230 @@
++from __future__ import annotations
++
++import os
++import re
++from dataclasses import dataclass
++from typing import Iterable
++
++
++SECTION_HEADINGS = [
++    "Summary",
++    "Symptoms",
++    "Impact",
++    "Likely Root Cause",
++    "Resolution Steps",
++    "Commands Used",
++    "Verification",
++    "Prevention Checklist",
++    "Escalation / Follow-up",
++]
++
++COMMAND_PREFIXES = (
++    "kubectl ",
++    "helm ",
++    "docker ",
++    "systemctl ",
++    "journalctl ",
++    "curl ",
++    "dig ",
++    "nslookup ",
++    "ping ",
++    "ssh ",
++    "scp ",
++    "rsync ",
++    "sudo ",
++    "ip ",
++    "ss ",
++    "netstat ",
++    "openssl ",
++    "mysql ",
++    "psql ",
++    "grep ",
++    "cat ",
++    "tail ",
++    "df ",
++    "du ",
++)
++
++SYMPTOM_WORDS = ("error", "failed", "failure", "down", "outage", "crash", "timeout", "refused", "unavailable", "502", "503", "404")
++ROOT_CAUSE_WORDS = ("because", "root cause", "caused by", "refused", "misconfig", "expired", "missing", "crashloop", "oom", "disk")
++RESOLUTION_WORDS = ("fixed", "resolved", "restart", "rolled", "applied", "patched", "scaled", "deleted", "recreated", "updated")
++VERIFY_WORDS = ("verified", "confirm", "confirmed", "tested", "healthy", "200", "success", "passing")
++
++
++@dataclass(frozen=True)
++class RunbookInput:
++    title: str
++    system: str
++    runbook_type: str
++    tags: str
++    raw_notes: str
++
++
++def generate_runbook(title: str, system: str, runbook_type: str, tags: str, raw_notes: str) -> str:
++    """Generate structured markdown using optional AI only when configured.
++
++    The deterministic local generator is the supported fallback and is intentionally
++    dependency-free so the MVP works without any secrets or network calls.
++    """
++    data = RunbookInput(
++        title=_clean_inline(title) or "Untitled Runbook",
++        system=_clean_inline(system) or "Unspecified system",
++        runbook_type=_clean_inline(runbook_type) or "General Runbook",
++        tags=_clean_inline(tags),
++        raw_notes=(raw_notes or "").strip(),
++    )
++
++    if _ai_enabled():
++        ai_markdown = _try_openai_compatible_generation(data)
+… omitted 152 diff line(s) across 1 additional file(s)/section(s)
+  ┊ review diff
+a/runbook_forge/storage.py → b/runbook_forge/storage.py
+@@ -0,0 +1,130 @@
++from __future__ import annotations
++
++import sqlite3
++from dataclasses import dataclass
++from datetime import datetime, timezone
++from pathlib import Path
++from typing import Iterable
++
++
++@dataclass(frozen=True)
++class RunbookRecord:
++    id: int
++    title: str
++    system: str
++    runbook_type: str
++    tags: str
++    raw_notes: str
++    markdown: str
++    bookstack_page_id: str | None
++    created_at: str
++    updated_at: str
++
++
++class RunbookStore:
++    def __init__(self, db_path: str | Path = "data/runbooks.sqlite3") -> None:
++        self.db_path = Path(db_path)
++        self.db_path.parent.mkdir(parents=True, exist_ok=True)
++        self._initialize()
++
++    def _connect(self) -> sqlite3.Connection:
++        connection = sqlite3.connect(self.db_path)
++        connection.row_factory = sqlite3.Row
++        return connection
++
++    def _initialize(self) -> None:
++        with self._connect() as connection:
++            connection.execute(
++                """
++                CREATE TABLE IF NOT EXISTS runbooks (
++                    id INTEGER PRIMARY KEY AUTOINCREMENT,
++                    title TEXT NOT NULL,
++                    system TEXT NOT NULL,
++                    runbook_type TEXT NOT NULL,
++                    tags TEXT NOT NULL DEFAULT '',
++                    raw_notes TEXT NOT NULL,
++                    markdown TEXT NOT NULL,
++                    bookstack_page_id TEXT,
++                    created_at TEXT NOT NULL,
++                    updated_at TEXT NOT NULL
++                )
++                """
++            )
++            connection.commit()
++
++    def create_runbook(
++        self,
++        *,
++        title: str,
++        system: str,
++        runbook_type: str,
++        tags: str,
++        raw_notes: str,
++        markdown: str,
++    ) -> RunbookRecord:
++        now = _now()
++        with self._connect() as connection:
++            cursor = connection.execute(
++                """
++                INSERT INTO runbooks (title, system, runbook_type, tags, raw_notes, markdown, created_at, updated_at)
++                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
++                """,
++                (title, system, runbook_type, tags, raw_notes, markdown, now, now),
++            )
++            connection.commit()
++            record_id = int(cursor.lastrowid)
++        record = self.get_runbook(record_id)
++        if record is None:
++            raise RuntimeError("Failed to load newly created runbook")
+… omitted 52 diff line(s) across 1 additional file(s)/section(s)
+  ┊ review diff
+a/runbook_forge/bookstack.py → b/runbook_forge/bookstack.py
+@@ -0,0 +1,96 @@
++from __future__ import annotations
++
++import json
++import os
++import urllib.error
++import urllib.request
++from dataclasses import dataclass
++
++
++@dataclass(frozen=True)
++class BookStackConfig:
++    base_url: str
++    token_id: str
++    token_secret: str
++    default_book_id: str | None = None
++    default_chapter_id: str | None = None
++
++    @classmethod
++    def from_env(cls) -> "BookStackConfig | None":
++        base_url = os.getenv("BOOKSTACK_BASE_URL", "").rstrip("/")
++        token_id = os.getenv("BOOKSTACK_TOKEN_ID", "")
++        token_secret = os.getenv("BOOKSTACK_TOKEN_SECRET", "")
++        if not (base_url and token_id and token_secret):
++            return None
++        return cls(
++            base_url=base_url,
++            token_id=token_id,
++            token_secret=token_secret,
++            default_book_id=os.getenv("BOOKSTACK_BOOK_ID") or None,
++            default_chapter_id=os.getenv("BOOKSTACK_CHAPTER_ID") or None,
++        )
++
++
++def is_configured() -> bool:
++    return BookStackConfig.from_env() is not None
++
++
++def publish_page(
++    *,
++    title: str,
++    markdown: str,
++    book_id: str | None = None,
++    chapter_id: str | None = None,
++    config: BookStackConfig | None = None,
++) -> dict[str, object]:
++    """Publish a markdown page to BookStack using env-backed API credentials.
++
++    This function never logs or returns token values. Callers can catch RuntimeError
++    and display the sanitized error message to the local user.
++    """
++    cfg = config or BookStackConfig.from_env()
++    if cfg is None:
++        raise RuntimeError("BookStack is not configured. Set BOOKSTACK_BASE_URL, BOOKSTACK_TOKEN_ID, and BOOKSTACK_TOKEN_SECRET.")
++
++    target_book_id = book_id or cfg.default_book_id
++    target_chapter_id = chapter_id or cfg.default_chapter_id
++    if not target_book_id and not target_chapter_id:
++        raise RuntimeError("BookStack publishing needs BOOKSTACK_BOOK_ID or BOOKSTACK_CHAPTER_ID, or a value submitted from the form.")
++
++    payload: dict[str, object] = {
++        "name": title,
++        "markdown": markdown,
++    }
++    if target_chapter_id:
++        payload["chapter_id"] = int(target_chapter_id)
++    elif target_book_id:
++        payload["book_id"] = int(target_book_id)
++
++    request = urllib.request.Request(
++        f"{cfg.base_url}/api/pages",
++        data=json.dumps(payload).encode("utf-8"),
++        headers={
++            "Authorization": f"Token {cfg.token_id}:{cfg.token_secret}",
++            "Content-Type": "application/json",
++            "Accept": "application/json",
++        },
++        method="POST",
++    )
+… omitted 18 diff line(s) across 1 additional file(s)/section(s)
+  ┊ review diff
+a/runbook_forge/main.py → b/runbook_forge/main.py
+@@ -0,0 +1,142 @@
++from __future__ import annotations
++
++import os
++from pathlib import Path
++
++from fastapi import FastAPI, Form, HTTPException, Request
++from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
++from fastapi.templating import Jinja2Templates
++
++from runbook_forge.bookstack import is_configured, publish_page
++from runbook_forge.generator import generate_runbook
++from runbook_forge.storage import RunbookStore
++
++BASE_DIR = Path(__file__).resolve().parent.parent
++TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))
++DB_PATH = Path(os.getenv("RUNBOOK_FORGE_DB", BASE_DIR / "data" / "runbooks.sqlite3"))
++store = RunbookStore(DB_PATH)
++
++app = FastAPI(title="Runbook Forge AI", version="0.1.0")
++
++
++@app.get("/health", response_class=PlainTextResponse)
++def health() -> str:
++    return "ok"
++
++
++@app.get("/", response_class=HTMLResponse)
++def index(request: Request) -> HTMLResponse:
++    return TEMPLATES.TemplateResponse(
++        "index.html",
++        {
++            "request": request,
++            "runbooks": store.list_runbooks(),
++            "bookstack_configured": is_configured(),
++        },
++    )
++
++
++@app.post("/generate", response_class=HTMLResponse)
++def generate(
++    request: Request,
++    title: str = Form(...),
++    system: str = Form(""),
++    runbook_type: str = Form("Troubleshooting"),
++    tags: str = Form(""),
++    raw_notes: str = Form(...),
++) -> HTMLResponse:
++    markdown = generate_runbook(title, system, runbook_type, tags, raw_notes)
++    return TEMPLATES.TemplateResponse(
++        "preview.html",
++        {
++            "request": request,
++            "title": title,
++            "system": system,
++            "runbook_type": runbook_type,
++            "tags": tags,
++            "raw_notes": raw_notes,
++            "markdown": markdown,
++            "bookstack_configured": is_configured(),
++        },
++    )
++
++
++@app.post("/save")
++def save(
++    title: str = Form(...),
++    system: str = Form(""),
++    runbook_type: str = Form("Troubleshooting"),
++    tags: str = Form(""),
++    raw_notes: str = Form(""),
++    markdown: str = Form(...),
++) -> RedirectResponse:
++    record = store.create_runbook(
++        title=title,
++        system=system,
++        runbook_type=runbook_type,
++        tags=tags,
++        raw_notes=raw_notes,
+… omitted 64 diff line(s) across 1 additional file(s)/section(s)
+  ┊ review diff
+a/templates/base.html → b/templates/base.html
+@@ -0,0 +1,23 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="utf-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>Runbook Forge AI</title>
++  <style>
++    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1100px; line-height: 1.5; color: #172033; }
++    input, textarea, select { width: 100%; padding: .65rem; margin: .25rem 0 1rem; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; }
++    textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
++    button, .button { background: #2563eb; color: white; border: 0; padding: .7rem 1rem; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
++    .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; }
++    .card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; background: #f8fafc; }
++    .muted { color: #64748b; }
++    @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
++  </style>
++</head>
++<body>
++  <h1>Runbook Forge AI</h1>
++  <p class="muted">Convert raw troubleshooting notes into structured markdown runbooks. Deterministic local generation works without AI secrets.</p>
++  {% block content %}{% endblock %}
++</body>
++</html>
+  ┊ review diff
+a/templates/index.html → b/templates/index.html
+@@ -0,0 +1,40 @@
++{% extends "base.html" %}
++{% block content %}
++<div class="grid">
++  <section>
++    <h2>Create runbook</h2>
++    <form action="/generate" method="post">
++      <label>Title <input name="title" required placeholder="WordPress 502 after deployment"></label>
++      <label>System / Client <input name="system" placeholder="Client WordPress / Homelab Kubernetes"></label>
++      <label>Runbook type
++        <select name="runbook_type">
++          <option>Troubleshooting</option>
++          <option>Incident Resolution</option>
++          <option>Maintenance</option>
++          <option>Deployment</option>
++          <option>Recovery</option>
++        </select>
++      </label>
++      <label>Tags <input name="tags" placeholder="wordpress,kubernetes,nginx"></label>
++      <label>Raw notes / events / commands
++        <textarea name="raw_notes" required placeholder="Paste shell output, incident notes, Kubernetes events, etc."></textarea>
++      </label>
++      <button type="submit">Generate preview</button>
++    </form>
++  </section>
++  <aside class="card">
++    <h2>History</h2>
++    {% if runbooks %}
++      <ul>
++      {% for runbook in runbooks %}
++        <li><a href="/runbooks/{{ runbook.id }}">{{ runbook.title }}</a><br><small class="muted">{{ runbook.system }} · {{ runbook.updated_at }}</small></li>
++      {% endfor %}
++      </ul>
++    {% else %}
++      <p class="muted">No saved runbooks yet.</p>
++    {% endif %}
++    <h3>BookStack</h3>
++    <p class="muted">Publishing is {{ "configured" if bookstack_configured else "not configured" }}. Local generation and saving do not require secrets.</p>
++  </aside>
++</div>
++{% endblock %}
+  ┊ review diff
+a/templates/preview.html → b/templates/preview.html
+@@ -0,0 +1,14 @@
++{% extends "base.html" %}
++{% block content %}
++<p><a href="/">← Back</a></p>
++<h2>Preview and edit</h2>
++<form action="/save" method="post">
++  <input type="hidden" name="title" value="{{ title }}">
++  <input type="hidden" name="system" value="{{ system }}">
++  <input type="hidden" name="runbook_type" value="{{ runbook_type }}">
++  <input type="hidden" name="tags" value="{{ tags }}">
++  <input type="hidden" name="raw_notes" value="{{ raw_notes }}">
++  <textarea name="markdown" style="min-height: 560px">{{ markdown }}</textarea>
++  <button type="submit">Save runbook</button>
++</form>
++{% endblock %}
+  ┊ review diff
+a/templates/detail.html → b/templates/detail.html
+@@ -0,0 +1,22 @@
++{% extends "base.html" %}
++{% block content %}
++<p><a href="/">← Back</a></p>
++{% if message %}<p class="card" style="border-color:#22c55e">{{ message }}</p>{% endif %}
++{% if error %}<p class="card" style="border-color:#ef4444">{{ error }}</p>{% endif %}
++<h2>{{ runbook.title }}</h2>
++<p class="muted">{{ runbook.system }} · {{ runbook.runbook_type }} · {{ runbook.tags }} · updated {{ runbook.updated_at }}</p>
++{% if runbook.bookstack_page_id %}<p>BookStack page id: {{ runbook.bookstack_page_id }}</p>{% endif %}
++<form action="/runbooks/{{ runbook.id }}/update" method="post">
++  <textarea name="markdown" style="min-height: 560px">{{ runbook.markdown }}</textarea>
++  <button type="submit">Save edits</button>
++</form>
++<section class="card" style="margin-top: 1rem">
++  <h3>Publish to BookStack</h3>
++  <p class="muted">Requires BOOKSTACK_BASE_URL, BOOKSTACK_TOKEN_ID, BOOKSTACK_TOKEN_SECRET and a book/chapter id. Secrets are never displayed.</p>
++  <form action="/runbooks/{{ runbook.id }}/publish" method="post">
++    <label>Book ID override <input name="book_id" placeholder="optional if BOOKSTACK_BOOK_ID is set"></label>
++    <label>Chapter ID override <input name="chapter_id" placeholder="optional if BOOKSTACK_CHAPTER_ID is set"></label>
++    <button type="submit">Publish</button>
++  </form>
++</section>
++{% endblock %}
+  ┊ review diff
+a/runbook_forge/smoke.py → b/runbook_forge/smoke.py
+@@ -0,0 +1,47 @@
++from __future__ import annotations
++
++import os
++from pathlib import Path
++
++from runbook_forge.generator import generate_runbook
++from runbook_forge.storage import RunbookStore
++
++
++def main() -> None:
++    db_path = Path(os.getenv("RUNBOOK_FORGE_DB", "data/smoke-runbooks.sqlite3"))
++    if db_path.exists():
++        db_path.unlink()
++    store = RunbookStore(db_path)
++    raw_notes = """
++    WordPress checkout returned 502 after plugin update.
++    kubectl get pods -n client-site showed nginx running and php-fpm CrashLoopBackOff.
++    journalctl -u php-fpm showed missing extension.
++    Fixed by disabling the plugin and restarting php-fpm.
++    kubectl rollout restart deployment/client-site -n client-site
++    Verified with curl -I https://client.example returning HTTP/2 200.
++    """
++    markdown = generate_runbook(
++        title="Smoke Test WordPress 502",
++        system="Client WordPress",
++        runbook_type="Incident Resolution",
++        tags="wordpress,smoke-test",
++        raw_notes=raw_notes,
++    )
++    record = store.create_runbook(
++        title="Smoke Test WordPress 502",
++        system="Client WordPress",
++        runbook_type="Incident Resolution",
++        tags="wordpress,smoke-test",
++        raw_notes=raw_notes,
++        markdown=markdown,
++    )
++    loaded = store.get_runbook(record.id)
++    assert loaded is not None
++    assert "## Summary" in loaded.markdown
++    assert "## Commands Used" in loaded.markdown
++    assert "kubectl rollout restart deployment/client-site -n client-site" in loaded.markdown
++    print(f"SMOKE OK: saved runbook id={loaded.id} to {db_path}")
++
++
++if __name__ == "__main__":
++    main()
+  ┊ review diff
+a/Dockerfile → b/Dockerfile
+@@ -0,0 +1,14 @@
++FROM python:3.13-slim
++
++ENV PYTHONDONTWRITEBYTECODE=1 \
++    PYTHONUNBUFFERED=1 \
++    RUNBOOK_FORGE_DB=/app/data/runbooks.sqlite3
++
++WORKDIR /app
++COPY pyproject.toml README.md ./
++COPY runbook_forge ./runbook_forge
++COPY templates ./templates
++RUN pip install --no-cache-dir .
++RUN mkdir -p /app/data
++EXPOSE 8000
++CMD ["uvicorn", "runbook_forge.main:app", "--host", "0.0.0.0", "--port", "8000"]
+  ┊ review diff
+a/README.md → b/README.md
+@@ -0,0 +1,132 @@
++# Runbook Forge AI
++
++Local MVP for turning raw troubleshooting notes, Kubernetes events, shell output, and incident notes into structured markdown runbooks. It works without AI secrets by using a deterministic local generator, and it can optionally publish saved runbooks to BookStack when API environment variables are configured.
++
++## What it does
++
++- Web form for title, system/client, runbook type, tags, and raw notes.
++- Generates markdown with these sections:
++  - Summary
++  - Symptoms
++  - Impact
++  - Likely Root Cause
++  - Resolution Steps
++  - Commands Used
++  - Verification
++  - Prevention Checklist
++  - Escalation / Follow-up
++- Preview/edit page before saving.
++- SQLite history of saved runbooks.
++- Optional BookStack publishing behind environment variables.
++- Smoke-test script that generates and saves a sample runbook.
++
++## Setup
++
++```bash
++cd /opt/data/projects/runbook-forge-ai
++uv sync
++```
++
++## Run locally
++
++```bash
++cd /opt/data/projects/runbook-forge-ai
++uv run uvicorn runbook_forge.main:app --host 127.0.0.1 --port 8000
++```
++
++Open http://127.0.0.1:8000 and paste incident notes into the form.
++
++The default SQLite database is:
++
++```text
++/opt/data/projects/runbook-forge-ai/data/runbooks.sqlite3
++```
++
++Override it with:
++
++```bash
++export RUNBOOK_FORGE_DB=/path/to/runbooks.sqlite3
++```
++
++## Environment variables
++
++Local generation and saving require no secrets.
++
++Optional BookStack publishing:
++
++```bash
++export BOOKSTACK_BASE_URL=https://bookstack.example.com
++export BOOKSTACK_TOKEN_ID=...
++export BOOKSTACK_TOKEN_SECRET=...
++export BOOKSTACK_BOOK_ID=123        # optional default target
++export BOOKSTACK_CHAPTER_ID=456     # optional default target; preferred when publishing into a chapter
++```
++
++The app never displays token values. If BookStack env vars are missing, local generation and SQLite saving still work.
++
++Optional AI placeholders:
++
++```bash
++export OPENAI_BASE_URL=https://api.openai.com/v1
++export OPENAI_API_KEY=...
++```
++
++The current MVP keeps deterministic generation as the dependable fallback. The AI hook is intentionally a no-op until provider-specific prompting and tests are added.
++
++## Smoke checks
++
++```bash
+… omitted 54 diff line(s) across 1 additional file(s)/section(s)
+
+[2026-06-22T02:18:15+00:00] GREEN: running pytest after implementation.
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+..                                                                       [100%]
+2 passed in 0.02s
+  ┊ review diff
+a//opt/data/projects/runbook-forge-ai/README.md → b//opt/data/projects/runbook-forge-ai/README.md
+@@ -57,7 +57,9 @@
+ ```bash
+ export BOOKSTACK_BASE_URL=https://bookstack.example.com
+ export BOOKSTACK_TOKEN_ID=...
+-export BOOKSTACK_TOKEN_SECRET=...
++export BOOKSTACK_BASE_URL=https://bookstack.example.com
++export BOOKSTACK_TOKEN_ID=***
++export BOOKSTACK_TOKEN_SECRET=***
+ export BOOKSTACK_BOOK_ID=123        # optional default target
+ export BOOKSTACK_CHAPTER_ID=456     # optional default target; preferred when publishing into a chapter
+ ```
+@@ -68,8 +70,11 @@
+ 
+ ```bash
+ export OPENAI_BASE_URL=https://api.openai.com/v1
+-export OPENAI_API_KEY=...
++export OPENAI_API_KEY=***
+ ```
++
++The current MVP keeps deterministic generation as the dependable fallback. The AI hook is intentionally a no-op until provider-specific prompting and tests are added.
++
+ 
+ The current MVP keeps deterministic generation as the dependable fallback. The AI hook is intentionally a no-op until provider-specific prompting and tests are added.
+ 
+  ┊ review diff
+a//opt/data/projects/runbook-forge-ai/README.md → b//opt/data/projects/runbook-forge-ai/README.md
+@@ -56,8 +56,6 @@
+ 
+ ```bash
+ export BOOKSTACK_BASE_URL=https://bookstack.example.com
+-export BOOKSTACK_TOKEN_ID=...
+-export BOOKSTACK_BASE_URL=https://bookstack.example.com
+ export BOOKSTACK_TOKEN_ID=***
+ export BOOKSTACK_TOKEN_SECRET=***
+ export BOOKSTACK_BOOK_ID=123        # optional default target
+@@ -72,9 +70,6 @@
+ export OPENAI_BASE_URL=https://api.openai.com/v1
+ export OPENAI_API_KEY=***
+ ```
+-
+-The current MVP keeps deterministic generation as the dependable fallback. The AI hook is intentionally a no-op until provider-specific prompting and tests are added.
+-
+ 
+ The current MVP keeps deterministic generation as the dependable fallback. The AI hook is intentionally a no-op until provider-specific prompting and tests are added.
+ 
+  ┊ review diff
+a//opt/data/projects/runbook-forge-ai/pyproject.toml → b//opt/data/projects/runbook-forge-ai/pyproject.toml
+@@ -1,3 +1,7 @@
++[build-system]
++requires = ["setuptools>=69"]
++build-backend = "setuptools.build_meta"
++
+ [project]
+ name = "runbook-forge-ai"
+ version = "0.1.0"
+
+[2026-06-22T02:18:56+00:00] Verification: uv sync.
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+Resolved 29 packages in 18ms
+   Building runbook-forge-ai @ file:///opt/data/projects/runbook-forge-ai
+  × Failed to build `runbook-forge-ai @
+  │ file:///opt/data/projects/runbook-forge-ai`
+  ├─▶ The build backend returned an error
+  ╰─▶ Call to `setuptools.build_meta.build_editable` failed (exit status: 1)
+
+      [stderr]
+      error: Multiple top-level packages discovered in a flat-layout:
+      ['templates', 'runbook_forge'].
+
+      To avoid accidental inclusion of unwanted files or directories,
+      setuptools will not proceed with this build.
+
+      If you are trying to create a single distribution with multiple packages
+      on purpose, you should not rely on automatic discovery.
+      Instead, consider the following options:
+
+      1. set up custom discovery (`find` directive with `include` or
+      `exclude`)
+      2. use a `src-layout`
+      3. explicitly set `py_modules` or `packages` with a list of names
+
+      To find more information, look for "package discovery" on setuptools
+      docs.
+
+      hint: This usually indicates a problem with the package or the build
+      environment.
+
+[2026-06-22T02:18:57+00:00] Verification: pytest.
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+   Building runbook-forge-ai @ file:///opt/data/projects/runbook-forge-ai
+  × Failed to build `runbook-forge-ai @
+  │ file:///opt/data/projects/runbook-forge-ai`
+  ├─▶ The build backend returned an error
+  ╰─▶ Call to `setuptools.build_meta.build_editable` failed (exit status: 1)
+
+      [stderr]
+      error: Multiple top-level packages discovered in a flat-layout:
+      ['templates', 'runbook_forge'].
+
+      To avoid accidental inclusion of unwanted files or directories,
+      setuptools will not proceed with this build.
+
+      If you are trying to create a single distribution with multiple packages
+      on purpose, you should not rely on automatic discovery.
+      Instead, consider the following options:
+
+      1. set up custom discovery (`find` directive with `include` or
+      `exclude`)
+      2. use a `src-layout`
+      3. explicitly set `py_modules` or `packages` with a list of names
+
+      To find more information, look for "package discovery" on setuptools
+      docs.
+
+      hint: This usually indicates a problem with the package or the build
+      environment.
+
+[2026-06-22T02:18:57+00:00] Verification: smoke script.
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+   Building runbook-forge-ai @ file:///opt/data/projects/runbook-forge-ai
+  × Failed to build `runbook-forge-ai @
+  │ file:///opt/data/projects/runbook-forge-ai`
+  ├─▶ The build backend returned an error
+  ╰─▶ Call to `setuptools.build_meta.build_editable` failed (exit status: 1)
+
+      [stderr]
+      error: Multiple top-level packages discovered in a flat-layout:
+      ['templates', 'runbook_forge'].
+
+      To avoid accidental inclusion of unwanted files or directories,
+      setuptools will not proceed with this build.
+
+      If you are trying to create a single distribution with multiple packages
+      on purpose, you should not rely on automatic discovery.
+      Instead, consider the following options:
+
+      1. set up custom discovery (`find` directive with `include` or
+      `exclude`)
+      2. use a `src-layout`
+      3. explicitly set `py_modules` or `packages` with a list of names
+
+      To find more information, look for "package discovery" on setuptools
+      docs.
+
+      hint: This usually indicates a problem with the package or the build
+      environment.
+
+[2026-06-22T02:18:58+00:00] Current project files.
+Dockerfile
+README.md
+RUNBOOK.md
+overnight-build.log
+overnight_prompt.txt
+pyproject.toml
+runbook_forge
+runbook_forge/__init__.py
+runbook_forge/bookstack.py
+runbook_forge/generator.py
+runbook_forge/main.py
+runbook_forge/smoke.py
+runbook_forge/storage.py
+templates
+templates/base.html
+templates/detail.html
+templates/index.html
+templates/preview.html
+tests
+tests/test_generator.py
+tests/test_storage.py
+uv.lock
+  ┊ review diff
+a//opt/data/projects/runbook-forge-ai/pyproject.toml → b//opt/data/projects/runbook-forge-ai/pyproject.toml
+@@ -23,3 +23,6 @@
+ [tool.pytest.ini_options]
+ testpaths = ["tests"]
+ pythonpath = ["."]
++
++[tool.setuptools.packages.find]
++include = ["runbook_forge*"]
+
+[2026-06-22T02:19:06+00:00] Fix: restricted setuptools package discovery to runbook_forge*. Re-running verification.
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+Resolved 29 packages in 1ms
+   Building runbook-forge-ai @ file:///opt/data/projects/runbook-forge-ai
+      Built runbook-forge-ai @ file:///opt/data/projects/runbook-forge-ai
+Prepared 1 package in 505ms
+Installed 1 package in 0.36ms
+ + runbook-forge-ai==0.1.0 (from file:///opt/data/projects/runbook-forge-ai)
+
+[2026-06-22T02:19:07+00:00] Verification: pytest.
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+..                                                                       [100%]
+2 passed in 0.02s
+
+[2026-06-22T02:19:07+00:00] Verification: smoke script.
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+SMOKE OK: saved runbook id=1 to data/smoke-runbooks.sqlite3
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+INFO:     Started server process [5982]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+[2026-06-22T02:19:23+00:00] Verification: FastAPI server health and form POST.
+INFO:     127.0.0.1:50746 - "GET /health HTTP/1.1" 200 OK
+GET /health -> ok
+INFO:     127.0.0.1:50748 - "POST /generate HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 62, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2531, in app
+    await route.handle(scope, receive, send)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1241, in handle
+    await super().handle(scope, receive, send)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 150, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 136, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 690, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 346, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/anyio/to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 2592, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 1029, in run
+    result = context.run(func, *args)
+  File "/opt/data/projects/runbook-forge-ai/runbook_forge/main.py", line 49, in generate
+    return TEMPLATES.TemplateResponse(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        "preview.html",
+        ^^^^^^^^^^^^^^^
+    ...<9 lines>...
+        },
+        ^^
+    )
+    ^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/templating.py", line 148, in TemplateResponse
+    template = self.get_template(name)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/starlette/templating.py", line 115, in get_template
+    return self.env.get_template(name)
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/jinja2/environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/jinja2/environment.py", line 964, in _load_template
+    template = self.cache.get(cache_key)
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/jinja2/utils.py", line 477, in get
+    return self[key]
+           ~~~~^^^^^
+  File "/opt/data/projects/runbook-forge-ai/.venv/lib/python3.13/site-packages/jinja2/utils.py", line 515, in __getitem__
+    rv = self._mapping[key]
+         ~~~~~~~~~~~~~^^^^^
+TypeError: unhashable type: 'dict'
+Traceback (most recent call last):
+  File "<stdin>", line 13, in <module>
+  File "/usr/lib/python3.13/urllib/request.py", line 189, in urlopen
+    return opener.open(url, data, timeout)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/urllib/request.py", line 495, in open
+    response = meth(req, response)
+  File "/usr/lib/python3.13/urllib/request.py", line 604, in http_response
+    response = self.parent.error(
+        'http', request, response, code, msg, hdrs)
+  File "/usr/lib/python3.13/urllib/request.py", line 533, in error
+    return self._call_chain(*args)
+           ~~~~~~~~~~~~~~~~^^^^^^^
+  File "/usr/lib/python3.13/urllib/request.py", line 466, in _call_chain
+    result = func(*args)
+  File "/usr/lib/python3.13/urllib/request.py", line 613, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 500: Internal Server Error
+  ┊ review diff
+a//opt/data/projects/runbook-forge-ai/runbook_forge/main.py → b//opt/data/projects/runbook-forge-ai/runbook_forge/main.py
+@@ -27,6 +27,7 @@
+ @app.get("/", response_class=HTMLResponse)
+ def index(request: Request) -> HTMLResponse:
+     return TEMPLATES.TemplateResponse(
++        request,
+         "index.html",
+         {
+             "request": request,
+@@ -47,6 +48,7 @@
+ ) -> HTMLResponse:
+     markdown = generate_runbook(title, system, runbook_type, tags, raw_notes)
+     return TEMPLATES.TemplateResponse(
++        request,
+         "preview.html",
+         {
+             "request": request,
+@@ -87,6 +89,7 @@
+     if record is None:
+         raise HTTPException(status_code=404, detail="Runbook not found")
+     return TEMPLATES.TemplateResponse(
++        request,
+         "detail.html",
+         {
+             "request": request,
+@@ -131,6 +134,7 @@
+         message = None
+         error = str(exc)
+     return TEMPLATES.TemplateResponse(
++        request,
+         "detail.html",
+         {
+             "request": request,
+
+[2026-06-22T02:20:01+00:00] Fix: updated Jinja TemplateResponse calls for installed Starlette/FastAPI signature. Re-running tests and smoke.
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+..                                                                       [100%]
+2 passed in 0.02s
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+SMOKE OK: saved runbook id=1 to data/smoke-runbooks.sqlite3
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+INFO:     Started server process [6133]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+[2026-06-22T02:20:19+00:00] Verification: FastAPI server health, generate preview, and save flow.
+INFO:     127.0.0.1:44940 - "GET /health HTTP/1.1" 200 OK
+GET /health -> ok
+INFO:     127.0.0.1:44948 - "POST /generate HTTP/1.1" 200 OK
+POST /generate status -> 200
+POST /generate contains required section -> True
+INFO:     127.0.0.1:44964 - "POST /save HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:44974 - "GET /runbooks/1 HTTP/1.1" 200 OK
+POST /save final status -> 200
+POST /save landed on detail -> True
+
+[2026-06-22T02:20:32+00:00] Stopped temporary uvicorn verification server. Final artifact inventory and database check.
+Files:
+ - Dockerfile
+ - README.md
+ - RUNBOOK.md
+ - data
+ - data/runbooks.sqlite3
+ - data/smoke-runbooks.sqlite3
+ - overnight-build.log
+ - overnight_prompt.txt
+ - pyproject.toml
+ - runbook_forge
+ - runbook_forge/__init__.py
+ - runbook_forge/bookstack.py
+ - runbook_forge/generator.py
+ - runbook_forge/main.py
+ - runbook_forge/smoke.py
+ - runbook_forge/storage.py
+ - runbook_forge_ai.egg-info
+ - runbook_forge_ai.egg-info/PKG-INFO
+ - runbook_forge_ai.egg-info/SOURCES.txt
+ - runbook_forge_ai.egg-info/dependency_links.txt
+ - runbook_forge_ai.egg-info/requires.txt
+ - runbook_forge_ai.egg-info/top_level.txt
+ - templates
+ - templates/base.html
+ - templates/detail.html
+ - templates/index.html
+ - templates/preview.html
+ - tests
+ - tests/test_generator.py
+ - tests/test_storage.py
+ - uv.lock
+data/smoke-runbooks.sqlite3: 1 runbook(s)
+data/runbooks.sqlite3: 1 runbook(s)
+  ┊ review diff
+a/MORNING_SUMMARY.md → b/MORNING_SUMMARY.md
+@@ -0,0 +1,142 @@
++# Morning Summary — Runbook Forge AI MVP
++
++## What was built
++
++Built a working local Runbook Forge AI MVP in `/opt/data/projects/runbook-forge-ai`.
++
++The app is a Python 3.13 FastAPI/Jinja/SQLite web app managed with `uv`. It turns raw troubleshooting notes, Kubernetes events, shell output, and incident notes into structured markdown runbooks using a deterministic local generator that works without AI secrets.
++
++Implemented MVP features:
++
++- Web form for title, system/client, runbook type, tags, and raw notes.
++- Deterministic runbook generator with required sections:
++  - Summary
++  - Symptoms
++  - Impact
++  - Likely Root Cause
++  - Resolution Steps
++  - Commands Used
++  - Verification
++  - Prevention Checklist
++  - Escalation / Follow-up
++- Preview/edit page before saving.
++- SQLite persistence and history/detail pages.
++- Optional BookStack publishing via environment variables only.
++- Dockerfile for future container deployment.
++- README with setup, usage, env vars, smoke checks, and Kubernetes deployment notes.
++- Pytest tests and a smoke script that verifies sample generation and saving.
++
++## Files created or changed
++
++Created/changed:
++
++- `pyproject.toml` — uv project config, FastAPI/Jinja deps, pytest config, setuptools package discovery.
++- `uv.lock` — dependency lockfile generated by uv.
++- `runbook_forge/__init__.py` — package metadata.
++- `runbook_forge/generator.py` — deterministic local markdown generator and optional AI hook placeholder.
++- `runbook_forge/storage.py` — SQLite persistence layer.
++- `runbook_forge/bookstack.py` — optional BookStack API publishing support using env vars, with secret sanitization.
++- `runbook_forge/main.py` — FastAPI app routes.
++- `runbook_forge/smoke.py` — sample generation/save smoke test.
++- `templates/base.html` — shared Jinja layout.
++- `templates/index.html` — create form and runbook history.
++- `templates/preview.html` — editable generated preview.
++- `templates/detail.html` — saved runbook detail/edit/publish page.
++- `tests/test_generator.py` — generator behavior test.
++- `tests/test_storage.py` — SQLite save/load test.
++- `Dockerfile` — future container build.
++- `README.md` — setup, usage, env vars, smoke checks, Kubernetes notes.
++- `data/smoke-runbooks.sqlite3` — created by smoke script with one sample runbook.
++- `data/runbooks.sqlite3` — created by HTTP save-flow verification with one sample runbook.
++- `overnight-build.log` — full notable build/verification log.
++- `MORNING_SUMMARY.md` — this summary.
++
++## Commands/tests run and results
++
++All command output was appended to `overnight-build.log`.
++
++1. Read `RUNBOOK.md` first.
++   - Result: requirements loaded before implementation.
++
++2. Initial RED pytest run before implementation:
++   - Command: `uv run pytest -q`
++   - Result: expected failure because `runbook_forge` package did not exist yet (`ModuleNotFoundError`).
++
++3. First post-implementation pytest run:
++   - Command: `uv run pytest -q`
++   - Result: `2 passed in 0.02s`.
++
++4. Verification after adding build metadata:
++   - Command: `uv sync`
++   - First result: failed because setuptools discovered both `templates` and `runbook_forge` as top-level packages.
++   - Fix: restricted setuptools package discovery to `runbook_forge*`.
++   - Re-run result: success; package built and installed editable.
++
++5. Full verification after packaging fix:
++   - Command: `uv run pytest -q`
++   - Result: `2 passed in 0.02s`.
++   - Command: `uv run python -m runbook_forge.smoke`
+… omitted 64 diff line(s) across 1 additional file(s)/section(s)
+
+[2026-06-22T02:21:19+00:00] Wrote MORNING_SUMMARY.md. Verified no tracked Hermes background processes remain. Final quick test.
+warning: `VIRTUAL_ENV=/opt/hermes/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+..                                                                       [100%]
+2 passed in 0.02s
+
+[2026-06-22T02:21:20+00:00] Overnight build complete.
+Done. Built and verified the MVP in:
+
+/opt/data/projects/runbook-forge-ai
+
+Primary deliverables:
+
+/opt/data/projects/runbook-forge-ai/MORNING_SUMMARY.md
+/opt/data/projects/runbook-forge-ai/overnight-build.log
+/opt/data/projects/runbook-forge-ai/README.md
+
+Verification completed successfully, including pytest, smoke generation/save, and live FastAPI health/generate/save HTTP checks.
+
+⚠️ File-mutation verifier: 1 file(s) were NOT modified this turn despite any wording above that may suggest otherwise. Run `git status` or `read_file` to confirm.
+  • `/opt/data/projects/runbook-forge-ai/MORNING_SUMMARY.md` — [patch] Could not find a match for old_string in the file Did you mean one of these sections? 130| 131| ```bash 132| export BOOKSTACK_BASE_URL=https://bookstack.johnsons.casa 133| export …

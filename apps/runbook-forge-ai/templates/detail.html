@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="/">← Back</a></p>
+{% if message %}<p class="card" style="border-color:#22c55e">{{ message }}</p>{% endif %}
+{% if error %}<p class="card" style="border-color:#ef4444">{{ error }}</p>{% endif %}
+<h2>{{ runbook.title }}</h2>
+<p class="muted">{{ runbook.system }} · {{ runbook.runbook_type }} · {{ runbook.tags }} · updated {{ runbook.updated_at }}</p>
+{% if runbook.bookstack_page_id %}<p>BookStack page id: {{ runbook.bookstack_page_id }}</p>{% endif %}
+<form action="/runbooks/{{ runbook.id }}/update" method="post">
+  <textarea name="markdown" style="min-height: 560px">{{ runbook.markdown }}</textarea>
+  <button type="submit">Save edits</button>
+</form>
+<section class="card" style="margin-top: 1rem">
+  <h3>Publish to BookStack</h3>
+  <p class="muted">Requires BOOKSTACK_BASE_URL, BOOKSTACK_TOKEN_ID, BOOKSTACK_TOKEN_SECRET and a book/chapter id. Secrets are never displayed.</p>
+  <form action="/runbooks/{{ runbook.id }}/publish" method="post">
+    <label>Book ID override <input name="book_id" placeholder="optional if BOOKSTACK_BOOK_ID is set"></label>
+    <label>Chapter ID override <input name="chapter_id" placeholder="optional if BOOKSTACK_CHAPTER_ID is set"></label>
+    <button type="submit">Publish</button>
+  </form>
+</section>
+{% endblock %}
