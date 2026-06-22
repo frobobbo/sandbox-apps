@@ -1,9 +1,0 @@
-Metadata-Version: 2.4
-Name: wp-fleetops
-Version: 0.1.0
-Summary: WordPress fleet operations dashboard MVP
-Requires-Python: >=3.13
-Requires-Dist: fastapi>=0.110
-Requires-Dist: jinja2>=3.1
-Requires-Dist: uvicorn>=0.30
-Requires-Dist: python-multipart>=0.0.9

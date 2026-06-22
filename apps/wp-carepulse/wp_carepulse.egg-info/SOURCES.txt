@@ -1,7 +1,0 @@
-pyproject.toml
-tests/test_carepulse.py
-wp_carepulse.egg-info/PKG-INFO
-wp_carepulse.egg-info/SOURCES.txt
-wp_carepulse.egg-info/dependency_links.txt
-wp_carepulse.egg-info/requires.txt
-wp_carepulse.egg-info/top_level.txt

@@ -1,7 +1,0 @@
-pyproject.toml
-tests/test_fleetops.py
-wp_fleetops.egg-info/PKG-INFO
-wp_fleetops.egg-info/SOURCES.txt
-wp_fleetops.egg-info/dependency_links.txt
-wp_fleetops.egg-info/requires.txt
-wp_fleetops.egg-info/top_level.txt
