@@ -1,4 +1,7 @@
+from fastapi.testclient import TestClient
+
 from wp_fleetops.fleet import FleetSite, calculate_health_score, generate_alerts, generate_maintenance_report
+from wp_fleetops.main import app
 from wp_fleetops.storage import FleetOpsStore
 
 
@@ -42,3 +45,24 @@ def test_store_persists_fleet_snapshots(tmp_path):
     assert site_id > 0
     assert snap_id > 0
     assert store.latest_dashboard()[0]["name"] == "Church"
+
+
+def test_snapshot_rejects_negative_operational_metrics():
+    client = TestClient(app)
+
+    response = client.post(
+        "/snapshot",
+        data={
+            "name": "Bad Metrics",
+            "url": "https://bad-metrics.example",
+            "uptime_ok": "true",
+            "ssl_days": "-1",
+            "wp_updates": "0",
+            "backup_age_hours": "24",
+            "response_ms": "250",
+            "security_header_count": "3",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
