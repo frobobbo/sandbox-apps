@@ -1,7 +1,6 @@
-from fastapi.testclient import TestClient
+import warnings
 
 from wp_fleetops.fleet import FleetSite, calculate_health_score, generate_alerts, generate_maintenance_report
-from wp_fleetops.main import app
 from wp_fleetops.storage import FleetOpsStore
 
 
@@ -48,6 +47,15 @@ def test_store_persists_fleet_snapshots(tmp_path):
 
 
 def test_snapshot_rejects_negative_operational_metrics():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="Using `httpx` with `starlette.testclient` is deprecated.*",
+        )
+        from fastapi.testclient import TestClient
+
+    from wp_fleetops.main import app
+
     client = TestClient(app)
 
     response = client.post(
