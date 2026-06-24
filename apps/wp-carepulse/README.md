@@ -4,6 +4,7 @@ Client-facing WordPress care monitoring/reporting MVP.
 
 ## Features
 - Track sites and clients.
+- Normalize bare site domains to `https://` so duplicate entries do not split history.
 - Score uptime, SSL, latency, WordPress updates, backup freshness, and headers.
 - Store latest checks in SQLite.
 - Generate a monthly Markdown care report.
@@ -11,7 +12,7 @@ Client-facing WordPress care monitoring/reporting MVP.
 
 ## Run
 ```bash
-cd /opt/data/projects/wp-carepulse
+cd /opt/data/projects/brett-apps/apps/wp-carepulse
 uv run pytest -q
 uv run uvicorn wp_carepulse.main:app --host 127.0.0.1 --port 8010
 ```

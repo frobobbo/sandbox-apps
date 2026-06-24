@@ -1,7 +1,17 @@
 from __future__ import annotations
 import json, sqlite3
 from pathlib import Path
+from urllib.parse import urlparse
 from .checks import SiteCheck
+
+def normalize_site_url(url: str) -> str:
+    candidate = url.strip()
+    if '://' not in candidate:
+        candidate = f'https://{candidate}'
+    parsed = urlparse(candidate)
+    if parsed.path == '/' and not parsed.query and not parsed.fragment:
+        candidate = candidate.rstrip('/')
+    return candidate
 
 class CarePulseStore:
     def __init__(self, path: str | Path = 'data/carepulse.sqlite3'):
@@ -13,6 +23,7 @@ class CarePulseStore:
             con.execute('create table if not exists sites (id integer primary key autoincrement, name text not null, url text not null unique, client text not null default "", created_at text not null default current_timestamp)')
             con.execute('create table if not exists checks (id integer primary key autoincrement, site_id integer not null references sites(id), checked_at text not null, status text not null, score integer not null, http_status integer not null, latency_ms integer not null, ssl_days_remaining integer not null, wordpress_version text not null, update_count integer not null, backup_age_hours integer not null, summary text not null, actions_json text not null, raw_json text not null)')
     def add_site(self, name: str, url: str, client: str = '') -> int:
+        url = normalize_site_url(url)
         with self._connect() as con:
             cur = con.execute('insert or ignore into sites(name,url,client) values(?,?,?)', (name, url, client))
             if cur.lastrowid: return int(cur.lastrowid)

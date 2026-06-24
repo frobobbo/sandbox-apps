@@ -50,6 +50,16 @@ def test_store_saves_sites_checks_and_report(tmp_path):
     assert store.latest_checks()[0]["status"] == check.status
 
 
+def test_store_normalizes_bare_domain_urls_for_deduplication(tmp_path):
+    store = CarePulseStore(tmp_path / "care.sqlite3")
+
+    first_id = store.add_site("Church", "church.example", "Church Client")
+    second_id = store.add_site("Church", "https://church.example", "Church Client")
+
+    assert second_id == first_id
+    assert store.list_sites()[0]["url"] == "https://church.example"
+
+
 def test_green_site_with_minor_recommendations_stays_client_friendly():
     result = evaluate_site(
         name="Church",
