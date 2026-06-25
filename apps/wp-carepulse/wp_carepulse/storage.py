@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json, sqlite3
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 from .checks import SiteCheck
 
 def normalize_site_url(url: str) -> str:
@@ -9,9 +9,12 @@ def normalize_site_url(url: str) -> str:
     if '://' not in candidate:
         candidate = f'https://{candidate}'
     parsed = urlparse(candidate)
-    if parsed.path == '/' and not parsed.query and not parsed.fragment:
-        candidate = candidate.rstrip('/')
-    return candidate
+    scheme = parsed.scheme.lower()
+    netloc = parsed.netloc.lower()
+    path = parsed.path
+    if path == '/' and not parsed.query and not parsed.fragment:
+        path = ''
+    return urlunparse((scheme, netloc, path, '', parsed.query, parsed.fragment))
 
 class CarePulseStore:
     def __init__(self, path: str | Path = 'data/carepulse.sqlite3'):
