@@ -8,7 +8,7 @@ Kubernetes/homelab-oriented WordPress fleet operations MVP.
 - Generate critical/warning/info alerts.
 - Produce Markdown maintenance reports.
 - Simple FastAPI/Jinja dashboard.
-- Reject negative operational metrics at snapshot submission.
+- Reject negative operational metrics and non-HTTP(S) site URLs at snapshot submission.
 
 ## Run
 ```bash

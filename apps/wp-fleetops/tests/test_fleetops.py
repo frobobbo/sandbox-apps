@@ -46,7 +46,7 @@ def test_store_persists_fleet_snapshots(tmp_path):
     assert store.latest_dashboard()[0]["name"] == "Church"
 
 
-def test_snapshot_rejects_negative_operational_metrics():
+def make_test_client():
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
@@ -56,20 +56,42 @@ def test_snapshot_rejects_negative_operational_metrics():
 
     from wp_fleetops.main import app
 
-    client = TestClient(app)
+    return TestClient(app)
+
+
+def valid_snapshot_payload(**overrides):
+    payload = {
+        "name": "Test Site",
+        "url": "https://test-site.example",
+        "uptime_ok": "true",
+        "ssl_days": "60",
+        "wp_updates": "0",
+        "backup_age_hours": "24",
+        "response_ms": "250",
+        "security_header_count": "3",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_snapshot_rejects_negative_operational_metrics():
+    client = make_test_client()
 
     response = client.post(
         "/snapshot",
-        data={
-            "name": "Bad Metrics",
-            "url": "https://bad-metrics.example",
-            "uptime_ok": "true",
-            "ssl_days": "-1",
-            "wp_updates": "0",
-            "backup_age_hours": "24",
-            "response_ms": "250",
-            "security_header_count": "3",
-        },
+        data=valid_snapshot_payload(name="Bad Metrics", url="https://bad-metrics.example", ssl_days="-1"),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+
+
+def test_snapshot_rejects_non_http_urls():
+    client = make_test_client()
+
+    response = client.post(
+        "/snapshot",
+        data=valid_snapshot_payload(url="javascript:alert(1)"),
         follow_redirects=False,
     )
 
