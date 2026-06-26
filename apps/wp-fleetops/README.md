@@ -6,7 +6,7 @@ Kubernetes/homelab-oriented WordPress fleet operations MVP.
 - Store fleet snapshots for many WordPress sites.
 - Calculate health scores.
 - Generate critical/warning/info alerts.
-- Produce Markdown maintenance reports.
+- Produce Markdown maintenance reports with fleet-level average scoring.
 - Simple FastAPI/Jinja dashboard.
 - Reject negative operational metrics and non-HTTP(S) site URLs at snapshot submission.
 

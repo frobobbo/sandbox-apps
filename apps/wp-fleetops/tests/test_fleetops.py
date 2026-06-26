@@ -35,6 +35,17 @@ def test_generate_maintenance_report_groups_fleet_status():
     assert "Recommended actions" in report
 
 
+def test_generate_maintenance_report_includes_average_fleet_score():
+    sites = [
+        FleetSite("Healthy", "https://healthy.example", True, 80, 0, 12, 200, 4),
+        FleetSite("Risky", "https://risky.example", True, 6, 3, 80, 1900, 1),
+    ]
+
+    report = generate_maintenance_report(sites)
+
+    assert "Average fleet score: 65/100" in report
+
+
 def test_store_persists_fleet_snapshots(tmp_path):
     store = FleetOpsStore(tmp_path / "fleet.sqlite3")
     site = FleetSite("Church", "https://church.example", True, 80, 0, 12, 200, 4)
