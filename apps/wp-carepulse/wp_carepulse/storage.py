@@ -6,11 +6,15 @@ from .checks import SiteCheck
 
 def normalize_site_url(url: str) -> str:
     candidate = url.strip()
+    if not candidate:
+        raise ValueError('Please enter a valid site URL with a host name.')
     if '://' not in candidate:
         candidate = f'https://{candidate}'
     parsed = urlparse(candidate)
     scheme = parsed.scheme.lower()
     netloc = parsed.netloc.lower()
+    if scheme not in {'http', 'https'} or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError('Please enter a valid site URL with a host name.')
     path = parsed.path
     if path == '/' and not parsed.query and not parsed.fragment:
         path = ''

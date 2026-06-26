@@ -1,5 +1,9 @@
+import pytest
+from fastapi.testclient import TestClient
+
 from wp_carepulse.checks import evaluate_site, summarize_report
-from wp_carepulse.storage import CarePulseStore
+from wp_carepulse.main import app
+from wp_carepulse.storage import CarePulseStore, normalize_site_url
 
 
 def test_evaluate_site_marks_healthy_wordpress_site():
@@ -68,6 +72,33 @@ def test_store_normalizes_url_host_case_for_deduplication(tmp_path):
 
     assert second_id == first_id
     assert store.list_sites()[0]["url"] == "https://church.example"
+
+
+def test_normalize_site_url_rejects_blank_or_hostless_urls():
+    for invalid_url in ("", "   ", "https://", "mailto:care@example.com"):
+        with pytest.raises(ValueError, match="valid site URL"):
+            normalize_site_url(invalid_url)
+
+
+def test_store_rejects_invalid_site_urls(tmp_path):
+    store = CarePulseStore(tmp_path / "care.sqlite3")
+
+    with pytest.raises(ValueError, match="valid site URL"):
+        store.add_site("Broken", "https://")
+
+    assert store.list_sites() == []
+
+
+def test_add_site_form_returns_400_for_invalid_url():
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.post(
+        "/sites",
+        data={"name": "Broken", "url": "https://", "client": "Church Client"},
+    )
+
+    assert response.status_code == 400
+    assert "valid site URL" in response.text
 
 
 def test_green_site_with_minor_recommendations_stays_client_friendly():
