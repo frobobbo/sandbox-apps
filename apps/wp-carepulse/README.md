@@ -9,7 +9,7 @@ Client-facing WordPress care monitoring/reporting MVP.
 - Score uptime, SSL, latency, WordPress updates, backup freshness, and headers.
 - Store latest checks in SQLite.
 - Generate a monthly Markdown care report.
-- Simple FastAPI/Jinja dashboard.
+- Simple FastAPI/Jinja dashboard with recommended actions visible beside each latest check.
 
 ## Run
 ```bash

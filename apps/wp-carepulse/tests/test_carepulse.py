@@ -128,3 +128,18 @@ def test_summarize_report_is_client_friendly():
     assert "Monthly WordPress Care Report" in report
     assert "Needs attention" in report
     assert "B" in report
+
+
+def test_dashboard_shows_recommended_actions_for_latest_checks(tmp_path, monkeypatch):
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+    site_id = test_store.add_site("Client", "https://client.example", "Church Client")
+    check = evaluate_site("Client", "https://client.example", 200, 1450, 8, "6.4.0", 7, 96, {})
+    test_store.save_check(site_id, check)
+
+    response = TestClient(app).get("/")
+
+    assert response.status_code == 200
+    assert "Recommended actions" in response.text
+    assert "Renew SSL certificate" in response.text
+    assert "Apply WordPress/plugin/theme updates" in response.text
