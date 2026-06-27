@@ -11,6 +11,11 @@ templates=Jinja2Templates(directory=str(BASE/'templates'))
 store=FleetOpsStore(BASE/'data'/'fleetops.sqlite3')
 @app.get('/health')
 def health(): return {'status':'ok','app':'wp-fleetops'}
+@app.get('/ready')
+def ready():
+    store.latest_dashboard()
+    template_status='ok' if (BASE/'templates'/'index.html').is_file() else 'missing'
+    return {'status':'ready' if template_status == 'ok' else 'not-ready','app':'wp-fleetops','checks':{'database':'ok','templates':template_status}}
 @app.get('/', response_class=HTMLResponse)
 def index(request: Request): return templates.TemplateResponse(request,'index.html',{'rows':store.latest_dashboard()})
 @app.post('/snapshot')

@@ -107,3 +107,19 @@ def test_snapshot_rejects_non_http_urls():
     )
 
     assert response.status_code == 422
+
+
+def test_readiness_reports_database_and_template_dependencies():
+    client = make_test_client()
+
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ready",
+        "app": "wp-fleetops",
+        "checks": {
+            "database": "ok",
+            "templates": "ok",
+        },
+    }
