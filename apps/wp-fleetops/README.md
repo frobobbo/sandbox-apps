@@ -10,10 +10,11 @@ Kubernetes/homelab-oriented WordPress fleet operations MVP.
 - Simple FastAPI/Jinja dashboard.
 - Kubernetes-friendly `/health` and `/ready` probes.
 - Reject negative operational metrics and non-HTTP(S) site URLs at snapshot submission.
+- Canonicalize stored site names and URLs so mixed-case hosts or trailing slashes update the same fleet record.
 
 ## Run
 ```bash
-cd /opt/data/projects/wp-fleetops
+cd /opt/data/projects/brett-apps/apps/wp-fleetops
 uv run pytest -q
 uv run uvicorn wp_fleetops.main:app --host 127.0.0.1 --port 8020
 ```

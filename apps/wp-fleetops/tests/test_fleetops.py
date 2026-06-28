@@ -1,6 +1,6 @@
 import warnings
 
-from wp_fleetops.fleet import FleetSite, calculate_health_score, generate_alerts, generate_maintenance_report
+from wp_fleetops.fleet import FleetSite, calculate_health_score, generate_alerts, generate_maintenance_report, normalize_site
 from wp_fleetops.storage import FleetOpsStore
 
 
@@ -10,6 +10,17 @@ def test_calculate_health_score_rewards_clean_site():
     score = calculate_health_score(site)
 
     assert score >= 95
+
+
+def test_normalize_site_canonicalizes_url_and_name_for_deduplication():
+    site = FleetSite(name="  Church WP  ", url=" HTTPS://Church.Example/ ", uptime_ok=True, ssl_days=80, wp_updates=0, backup_age_hours=10, response_ms=240, security_header_count=4)
+
+    normalized = normalize_site(site)
+
+    assert normalized.name == "Church WP"
+    assert normalized.url == "https://church.example"
+    assert normalized.ssl_days == site.ssl_days
+    assert normalized.response_ms == site.response_ms
 
 
 def test_generate_alerts_catches_operational_risks():
@@ -55,6 +66,17 @@ def test_store_persists_fleet_snapshots(tmp_path):
     assert site_id > 0
     assert snap_id > 0
     assert store.latest_dashboard()[0]["name"] == "Church"
+
+
+def test_store_deduplicates_sites_by_canonical_url(tmp_path):
+    store = FleetOpsStore(tmp_path / "fleet.sqlite3")
+    first = FleetSite("Church", "https://church.example", True, 80, 0, 12, 200, 4)
+    duplicate = FleetSite("Church Updated", "HTTPS://Church.Example/", True, 80, 0, 12, 200, 4)
+
+    first_id = store.upsert_site(first)
+    duplicate_id = store.upsert_site(duplicate)
+
+    assert duplicate_id == first_id
 
 
 def make_test_client():

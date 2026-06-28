@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
+from urllib.parse import urlsplit, urlunsplit
 @dataclass(frozen=True)
 class FleetSite:
     name: str; url: str; uptime_ok: bool; ssl_days: int; wp_updates: int; backup_age_hours: int; response_ms: int; security_header_count: int
@@ -8,6 +9,13 @@ class FleetSite:
 @dataclass(frozen=True)
 class Alert:
     site: str; severity: str; message: str
+
+
+def normalize_site(site: FleetSite) -> FleetSite:
+    parsed = urlsplit(site.url.strip())
+    url = urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), parsed.path.rstrip('/'), parsed.query, parsed.fragment))
+    return FleetSite(site.name.strip(), url, site.uptime_ok, site.ssl_days, site.wp_updates, site.backup_age_hours, site.response_ms, site.security_header_count)
+
 
 def calculate_health_score(site: FleetSite) -> int:
     score=100

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json, sqlite3
 from pathlib import Path
-from .fleet import FleetSite, Alert
+from .fleet import FleetSite, Alert, normalize_site
 class FleetOpsStore:
     def __init__(self, path: str | Path = 'data/fleetops.sqlite3'):
         self.path=Path(path); self.path.parent.mkdir(parents=True, exist_ok=True); self._init()
@@ -12,6 +12,7 @@ class FleetOpsStore:
             con.execute('create table if not exists sites(id integer primary key autoincrement, name text not null, url text not null unique, created_at text not null default current_timestamp)')
             con.execute('create table if not exists snapshots(id integer primary key autoincrement, site_id integer not null references sites(id), captured_at text not null default current_timestamp, score integer not null, uptime_ok integer not null, ssl_days integer not null, wp_updates integer not null, backup_age_hours integer not null, response_ms integer not null, security_header_count integer not null, alerts_json text not null, raw_json text not null)')
     def upsert_site(self, site: FleetSite) -> int:
+        site = normalize_site(site)
         with self._connect() as con:
             cur=con.execute('insert or ignore into sites(name,url) values(?,?)',(site.name,site.url))
             if cur.lastrowid: return int(cur.lastrowid)
