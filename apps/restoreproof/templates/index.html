@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RestoreProof</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0f172a; --card:#111c33; --muted:#94a3b8; --text:#e2e8f0; --accent:#38bdf8; --green:#22c55e; --yellow:#f59e0b; --red:#ef4444; }
+    body { margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif; background:linear-gradient(135deg,#0f172a,#172554); color:var(--text); }
+    main { max-width:1180px; margin:0 auto; padding:36px 18px 60px; }
+    .hero { display:grid; gap:14px; grid-template-columns: 1.4fr .8fr; align-items:stretch; }
+    .card { background:rgba(17,28,51,.92); border:1px solid rgba(148,163,184,.22); border-radius:22px; padding:24px; box-shadow:0 24px 80px rgba(2,6,23,.28); }
+    h1 { font-size:clamp(2rem, 5vw, 4.5rem); margin:.1em 0; letter-spacing:-.05em; }
+    h2 { margin-top:0; }
+    p, label, td, th { color:var(--muted); }
+    .tag { display:inline-flex; gap:8px; align-items:center; border:1px solid rgba(56,189,248,.45); color:#bae6fd; padding:6px 10px; border-radius:999px; font-size:.85rem; }
+    .grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-top:16px; }
+    input, select, textarea { width:100%; box-sizing:border-box; background:#0b1224; color:var(--text); border:1px solid rgba(148,163,184,.25); border-radius:12px; padding:10px 12px; margin:5px 0 12px; }
+    button, .button { display:inline-block; border:0; background:var(--accent); color:#082f49; font-weight:800; padding:11px 16px; border-radius:12px; text-decoration:none; cursor:pointer; }
+    table { width:100%; border-collapse:collapse; overflow:hidden; border-radius:16px; }
+    th, td { padding:12px; border-bottom:1px solid rgba(148,163,184,.16); text-align:left; vertical-align:top; }
+    .status { font-weight:800; text-transform:uppercase; }
+    .verified { color:var(--green); } .partial { color:var(--yellow); } .failed { color:var(--red); }
+    .metric { font-size:2.4rem; font-weight:900; }
+    .muted { color:var(--muted); }
+    @media (max-width: 760px) { .hero { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="card">
+      <span class="tag">Backup restore evidence dashboard</span>
+      <h1>RestoreProof</h1>
+      <p>Track WordPress and homelab restore drills, verify recovery evidence, and generate client-ready reports that prove a backup was actually restored.</p>
+    </div>
+    <div class="card">
+      <div class="metric">{{ runs|length }}</div>
+      <p>latest restore proofs on file</p>
+      <p class="muted">Green reports are strong add-on evidence for managed hosting clients.</p>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Add protected site</h2>
+      <form method="post" action="/sites">
+        <label>Site name<input name="name" placeholder="Church Website" required></label>
+        <label>Production URL<input name="url" placeholder="https://example.org" required></label>
+        <label>Client / owner<input name="client" placeholder="First Baptist / Internal"></label>
+        <button type="submit">Save site</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Record restore drill</h2>
+      {% if sites %}
+      <form method="post" action="/restore-runs">
+        <label>Site
+          <select name="site_id">
+            {% for site in sites %}<option value="{{ site.id }}">{{ site.name }} — {{ site.url }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Backup label<input name="backup_label" value="Nightly backup" required></label>
+        <label>Backup created at<input name="backup_created_at" value="latest nightly" required></label>
+        <label>Backup size MB<input name="backup_size_mb" type="number" min="0" value="512" required></label>
+        <label>Storage location<input name="storage_location" value="S3 / NAS / host snapshot" required></label>
+        <label>Restore target URL<input name="restore_target_url" placeholder="https://restore-test.example.org" required></label>
+        <label>Homepage HTTP status<input name="homepage_status" type="number" value="200"></label>
+        <label>Admin/login HTTP status<input name="admin_status" type="number" value="200"></label>
+        <label>Key URLs passed<input name="key_urls_passed" type="number" min="0" value="3"></label>
+        <label>Key URLs total<input name="key_urls_total" type="number" min="0" value="3"></label>
+        <label>Backup age hours<input name="backup_age_hours" type="number" min="0" value="24"></label>
+        <label><input style="width:auto" type="checkbox" name="database_imported" checked> Database imported</label>
+        <label><input style="width:auto" type="checkbox" name="media_present" checked> Media/uploads present</label>
+        <label>Operator notes<textarea name="notes" rows="3" placeholder="WP-CLI import completed; spot-checked homepage and contact page."></textarea></label>
+        <button type="submit">Generate restore proof</button>
+      </form>
+      {% else %}
+      <p>Add a site first, then record a restore drill.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Latest restore proof by site</h2>
+    {% if runs %}
+    <table>
+      <thead><tr><th>Site</th><th>Status</th><th>Score</th><th>Backup</th><th>Restore target</th><th>Actions</th><th>Report</th></tr></thead>
+      <tbody>
+      {% for run in runs %}
+        <tr>
+          <td><strong>{{ run.site_name }}</strong><br><span class="muted">{{ run.client or 'Internal' }}</span></td>
+          <td class="status {{ run.status }}">{{ run.status }}</td>
+          <td>{{ run.score }}/100</td>
+          <td>{{ run.backup_label }}<br><span class="muted">{{ run.size_mb }} MB · {{ run.storage_location }}</span></td>
+          <td>{{ run.restore_target_url }}</td>
+          <td>{% if run.actions %}<ul>{% for action in run.actions %}<li>{{ action }}</li>{% endfor %}</ul>{% else %}No immediate blockers.{% endif %}</td>
+          <td><a class="button" href="/report/{{ run.id }}">View</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p>No restore drills recorded yet.</p>
+    {% endif %}
+  </section>
+</main>
+</body>
+</html>

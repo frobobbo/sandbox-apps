@@ -8,6 +8,7 @@ A monorepo of small automation, WordPress operations, church media, and document
 |---|---|
 | `apps/wp-carepulse` | Client-facing WordPress care monitoring and monthly report generator. |
 | `apps/wp-fleetops` | Homelab/Kubernetes-oriented WordPress fleet operations dashboard. |
+| `apps/restoreproof` | Backup restore verification dashboard and client-ready recovery proof reports. |
 | `apps/runbook-forge-ai` | Turns ops notes and command output into structured runbooks. |
 | `apps/sermonclipper-ai` | Analyzes sermon transcripts and generates short-form clip candidates. |
 
@@ -16,6 +17,7 @@ A monorepo of small automation, WordPress operations, church media, and document
 ```bash
 cd apps/wp-carepulse && uv run pytest -q
 cd ../wp-fleetops && uv run pytest -q
+cd ../restoreproof && uv run pytest -q
 cd ../runbook-forge-ai && uv run pytest -q
 cd ../sermonclipper-ai && uv run --with pytest pytest -q
 ```
