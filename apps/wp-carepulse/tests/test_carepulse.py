@@ -89,6 +89,15 @@ def test_store_rejects_invalid_site_urls(tmp_path):
     assert store.list_sites() == []
 
 
+def test_store_rejects_blank_site_names(tmp_path):
+    store = CarePulseStore(tmp_path / "care.sqlite3")
+
+    with pytest.raises(ValueError, match="site name"):
+        store.add_site("   ", "https://church.example")
+
+    assert store.list_sites() == []
+
+
 def test_add_site_form_returns_400_for_invalid_url():
     client = TestClient(app, raise_server_exceptions=False)
 

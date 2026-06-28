@@ -30,6 +30,9 @@ class CarePulseStore:
             con.execute('create table if not exists sites (id integer primary key autoincrement, name text not null, url text not null unique, client text not null default "", created_at text not null default current_timestamp)')
             con.execute('create table if not exists checks (id integer primary key autoincrement, site_id integer not null references sites(id), checked_at text not null, status text not null, score integer not null, http_status integer not null, latency_ms integer not null, ssl_days_remaining integer not null, wordpress_version text not null, update_count integer not null, backup_age_hours integer not null, summary text not null, actions_json text not null, raw_json text not null)')
     def add_site(self, name: str, url: str, client: str = '') -> int:
+        name = name.strip()
+        if not name:
+            raise ValueError('Please enter a site name.')
         url = normalize_site_url(url)
         with self._connect() as con:
             cur = con.execute('insert or ignore into sites(name,url,client) values(?,?,?)', (name, url, client))
