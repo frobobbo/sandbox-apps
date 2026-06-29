@@ -145,3 +145,34 @@ def test_readiness_reports_database_and_template_dependencies():
             "templates": "ok",
         },
     }
+
+
+def test_export_returns_machine_readable_dashboard_with_summary(tmp_path):
+    from wp_fleetops import main
+
+    original_store = main.store
+    main.store = FleetOpsStore(tmp_path / "fleet.sqlite3")
+    try:
+        client = make_test_client()
+        response = client.post(
+            "/snapshot",
+            data=valid_snapshot_payload(
+                name="Exported Site",
+                url="https://exported.example",
+                ssl_days="5",
+                backup_age_hours="96",
+            ),
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+
+        export_response = client.get("/export.json")
+    finally:
+        main.store = original_store
+
+    assert export_response.status_code == 200
+    payload = export_response.json()
+    assert payload["summary"] == {"sites": 1, "critical_sites": 1, "average_score": 55}
+    assert payload["sites"][0]["name"] == "Exported Site"
+    assert payload["sites"][0]["url"] == "https://exported.example"
+    assert any(alert["severity"] == "critical" for alert in payload["sites"][0]["alerts"])

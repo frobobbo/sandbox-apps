@@ -25,3 +25,16 @@ def snapshot(name: str=Form(..., min_length=1), url: str=Form(..., min_length=1,
 def report():
     sites=[FleetSite(r['name'],r['url'],bool(r['uptime_ok']),r['ssl_days'],r['wp_updates'],r['backup_age_hours'],r['response_ms'],r['security_header_count']) for r in store.latest_dashboard()]
     return generate_maintenance_report(sites)
+
+@app.get('/export.json')
+def export_json():
+    rows=store.latest_dashboard()
+    scores=[r['score'] for r in rows]
+    return {
+        'summary': {
+            'sites': len(rows),
+            'critical_sites': sum(1 for r in rows if any(a['severity'] == 'critical' for a in r['alerts'])),
+            'average_score': round(sum(scores)/len(scores)) if scores else 0,
+        },
+        'sites': rows,
+    }
