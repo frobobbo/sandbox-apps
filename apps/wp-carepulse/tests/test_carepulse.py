@@ -139,6 +139,18 @@ def test_summarize_report_is_client_friendly():
     assert "B" in report
 
 
+def test_summarize_report_prioritizes_sites_needing_attention():
+    checks = [
+        evaluate_site("Healthy", "https://healthy.example", 200, 100, 90, "6.6", 0, 10, {}),
+        evaluate_site("Urgent", "https://urgent.example", 500, 2000, 3, "6.2", 5, 120, {}),
+        evaluate_site("Maintenance", "https://maintenance.example", 200, 1300, 40, "6.5", 3, 48, {}),
+    ]
+
+    report = summarize_report(checks)
+
+    assert report.index("## Urgent") < report.index("## Maintenance") < report.index("## Healthy")
+
+
 def test_dashboard_shows_recommended_actions_for_latest_checks(tmp_path, monkeypatch):
     test_store = CarePulseStore(tmp_path / "care.sqlite3")
     monkeypatch.setattr("wp_carepulse.main.store", test_store)

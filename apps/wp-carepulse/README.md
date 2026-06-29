@@ -8,7 +8,7 @@ Client-facing WordPress care monitoring/reporting MVP.
 - Reject blank site names plus blank, hostless, or credential-style URLs before saving a site.
 - Score uptime, SSL, latency, WordPress updates, backup freshness, and headers.
 - Store latest checks in SQLite.
-- Generate a monthly Markdown care report.
+- Generate a monthly Markdown care report that lists sites needing attention before routine maintenance and healthy sites.
 - Simple FastAPI/Jinja dashboard with recommended actions visible beside each latest check.
 
 ## Run

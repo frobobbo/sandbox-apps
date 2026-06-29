@@ -86,7 +86,8 @@ def fetch_basic_site_check(name: str, url: str, timeout: int = 10) -> SiteCheck:
 def summarize_report(checks: list[SiteCheck]) -> str:
     total=len(checks); green=sum(1 for c in checks if c.status=='green'); yellow=sum(1 for c in checks if c.status=='yellow'); red=sum(1 for c in checks if c.status=='red')
     lines=['# Monthly WordPress Care Report','',f'Sites reviewed: {total}',f'Healthy: {green} | Maintenance: {yellow} | Needs attention: {red}','']
-    for c in checks:
+    severity_order = {'red': 0, 'yellow': 1, 'green': 2}
+    for c in sorted(checks, key=lambda check: (severity_order[check.status], check.name.lower())):
         heading = 'Healthy' if c.status == 'green' else ('Maintenance scheduled' if c.status == 'yellow' else 'Needs attention')
         lines += [f'## {c.name} — {heading}', '', f'Score: {c.score}/100', f'URL: {c.url}', c.summary, '']
         if c.actions:
