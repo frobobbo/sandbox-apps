@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PatchPilot WP</title>
+  <style>
+    body{font-family:Inter,system-ui,sans-serif;margin:0;background:#0f172a;color:#e2e8f0}main{max-width:1100px;margin:0 auto;padding:32px}.hero{background:linear-gradient(135deg,#1d4ed8,#7c3aed);border-radius:24px;padding:32px;margin-bottom:24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.card{background:#111827;border:1px solid #334155;border-radius:18px;padding:20px;box-shadow:0 16px 40px #0004}label{display:block;margin-top:10px;color:#cbd5e1}input,textarea,select{width:100%;box-sizing:border-box;margin-top:4px;padding:10px;border-radius:10px;border:1px solid #475569;background:#020617;color:#f8fafc}button{margin-top:12px;padding:10px 14px;border:0;border-radius:999px;background:#38bdf8;color:#082f49;font-weight:700}.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700}.pass{background:#14532d;color:#bbf7d0}.warn{background:#713f12;color:#fde68a}.fail{background:#7f1d1d;color:#fecaca}a{color:#7dd3fc}.muted{color:#94a3b8}.site{border-top:1px solid #334155;padding-top:14px;margin-top:14px}li{margin:8px 0}</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <p class="muted">WordPress update evidence assistant</p>
+    <h1>PatchPilot WP</h1>
+    <p>Record client sites, define key pages, run before/after page checks, and generate maintenance reports Brett can send to clients.</p>
+  </section>
+  <section class="grid">
+    <div class="card">
+      <h2>Add WordPress site</h2>
+      <form method="post" action="/sites">
+        <label>Site name<input name="name" placeholder="Client Site" required></label>
+        <label>Base URL<input name="base_url" placeholder="https://client.example" required></label>
+        <label>Client name<input name="client_name" placeholder="Client LLC"></label>
+        <button>Add site</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Recent reports</h2>
+      {% if runs %}<ul>{% for run in runs[:6] %}<li><a href="/runs/{{ run.id }}/report">{{ run.site_name }} — {{ run.created_at }}</a><br><span class="muted">{{ run.notes or 'No notes' }}</span></li>{% endfor %}</ul>{% else %}<p class="muted">No maintenance runs yet.</p>{% endif %}
+    </div>
+  </section>
+  <section class="card" style="margin-top:18px">
+    <h2>Sites and key URLs</h2>
+    {% if sites %}
+      {% for site in sites %}
+      <div class="site">
+        <h3>{{ site.name }}</h3>
+        <p><a href="{{ site.base_url }}">{{ site.base_url }}</a> <span class="muted">{{ site.client_name }}</span></p>
+        <form method="post" action="/sites/{{ site.id }}/pages" class="grid">
+          <label>Page label<input name="label" placeholder="Home" required></label>
+          <label>URL<input name="url" value="{{ site.base_url }}" required></label>
+          <label>Baseline title<input name="baseline_title" placeholder="Expected page title"></label>
+          <button>Add/update page</button>
+        </form>
+        <form method="post" action="/sites/{{ site.id }}/runs">
+          <label>Run notes<textarea name="notes" placeholder="Plugins/themes updated manually on staging before this check"></textarea></label>
+          <label>Mode<select name="mode"><option value="live">Live HTTP checks</option><option value="baseline">Baseline-only demo check</option></select></label>
+          <button>Start maintenance run</button>
+        </form>
+      </div>
+      {% endfor %}
+    {% else %}<p class="muted">Add a site to begin.</p>{% endif %}
+  </section>
+  <section class="card" style="margin-top:18px">
+    <h2>Latest page check results</h2>
+    {% for run in runs[:5] %}
+      <h3>{{ run.site_name }} <span class="muted">{{ run.created_at }}</span></h3>
+      {% set checks = latest_checks.get(run.id, []) %}
+      {% if checks %}<ul>{% for check in checks %}<li><span class="badge {{ check.status }}">{{ check.status|upper }}</span> {{ check.label }} — HTTP {{ check.http_status or 'none' }} — {{ check.title or 'missing title' }}{% if check.warnings %}<br><span class="muted">{{ '; '.join(check.warnings) }}</span>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="muted">No pages were checked for this run.</p>{% endif %}
+    {% else %}<p class="muted">Run checks to see evidence here.</p>{% endfor %}
+  </section>
+</main>
+</body>
+</html>

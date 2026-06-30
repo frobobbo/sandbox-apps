@@ -1,0 +1,22 @@
+[project]
+name = "patchpilot-wp"
+version = "0.1.0"
+description = "WordPress maintenance evidence and client report MVP"
+requires-python = ">=3.13"
+dependencies = [
+  "fastapi>=0.110",
+  "jinja2>=3.1",
+  "uvicorn>=0.30",
+  "python-multipart>=0.0.9",
+  "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["patchpilot_wp*"]
