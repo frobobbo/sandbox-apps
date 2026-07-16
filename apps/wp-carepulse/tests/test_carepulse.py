@@ -151,6 +151,33 @@ def test_summarize_report_prioritizes_sites_needing_attention():
     assert report.index("## Urgent") < report.index("## Maintenance") < report.index("## Healthy")
 
 
+def test_report_uses_saved_check_results_without_recalculating(tmp_path, monkeypatch):
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+    site_id = test_store.add_site("Healthy", "https://healthy.example", "Church Client")
+    check = evaluate_site(
+        "Healthy",
+        "https://healthy.example",
+        200,
+        100,
+        90,
+        "6.6",
+        0,
+        10,
+        {
+            "strict-transport-security": "max-age=31536000",
+            "x-frame-options": "SAMEORIGIN",
+        },
+    )
+    test_store.save_check(site_id, check)
+
+    response = TestClient(app).get("/report")
+
+    assert response.status_code == 200
+    assert "Score: 100/100" in response.text
+    assert "Recommended actions:" not in response.text
+
+
 def test_dashboard_shows_recommended_actions_for_latest_checks(tmp_path, monkeypatch):
     test_store = CarePulseStore(tmp_path / "care.sqlite3")
     monkeypatch.setattr("wp_carepulse.main.store", test_store)

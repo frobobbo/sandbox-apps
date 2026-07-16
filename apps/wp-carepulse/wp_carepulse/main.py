@@ -1,9 +1,10 @@
 from __future__ import annotations
+import json
 from pathlib import Path
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
-from .checks import evaluate_site, fetch_basic_site_check, summarize_report
+from .checks import SiteCheck, evaluate_site, fetch_basic_site_check, summarize_report
 from .storage import CarePulseStore
 BASE = Path(__file__).resolve().parent.parent
 app = FastAPI(title='WP CarePulse')
@@ -29,5 +30,5 @@ def manual_check(name: str = Form(...), url: str = Form(...), client: str = Form
     check = evaluate_site(name, url, http_status, latency_ms, ssl_days_remaining, wordpress_version, update_count, backup_age_hours, {}); store.save_check(site_id, check); return RedirectResponse('/', status_code=303)
 @app.get('/report', response_class=PlainTextResponse)
 def report():
-    checks=[evaluate_site(r['name'], r['url'], r['http_status'], r['latency_ms'], r['ssl_days_remaining'], r['wordpress_version'], r['update_count'], r['backup_age_hours'], {}) for r in store.latest_checks()]
+    checks = [SiteCheck(**json.loads(row['raw_json'])) for row in store.latest_checks()]
     return summarize_report(checks)
