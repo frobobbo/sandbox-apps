@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from .fleet import FleetSite, calculate_health_score, generate_alerts, generate_maintenance_report, normalize_site
@@ -12,9 +12,10 @@ store=FleetOpsStore(BASE/'data'/'fleetops.sqlite3')
 @app.get('/health')
 def health(): return {'status':'ok','app':'wp-fleetops'}
 @app.get('/ready')
-def ready():
+def ready(response: Response):
     store.latest_dashboard()
     template_status='ok' if (BASE/'templates'/'index.html').is_file() else 'missing'
+    if template_status != 'ok': response.status_code=503
     return {'status':'ready' if template_status == 'ok' else 'not-ready','app':'wp-fleetops','checks':{'database':'ok','templates':template_status}}
 @app.get('/', response_class=HTMLResponse)
 def index(request: Request): return templates.TemplateResponse(request,'index.html',{'rows':store.latest_dashboard()})

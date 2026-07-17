@@ -147,6 +147,24 @@ def test_readiness_reports_database_and_template_dependencies():
     }
 
 
+def test_readiness_returns_503_when_template_dependency_is_missing(tmp_path, monkeypatch):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "BASE", tmp_path)
+
+    response = make_test_client().get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not-ready",
+        "app": "wp-fleetops",
+        "checks": {
+            "database": "ok",
+            "templates": "missing",
+        },
+    }
+
+
 def test_export_returns_machine_readable_dashboard_with_summary(tmp_path):
     from wp_fleetops import main
 
