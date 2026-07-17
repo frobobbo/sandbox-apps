@@ -151,6 +151,22 @@ def test_summarize_report_prioritizes_sites_needing_attention():
     assert report.index("## Urgent") < report.index("## Maintenance") < report.index("## Healthy")
 
 
+def test_manual_check_uses_normalized_url_in_saved_report(tmp_path, monkeypatch):
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+    client = TestClient(app)
+
+    response = client.post(
+        "/manual-check",
+        data={"name": "Church", "url": "Church.Example/", "client": "Church Client"},
+        follow_redirects=False,
+    )
+    report = client.get("/report")
+
+    assert response.status_code == 303
+    assert "URL: https://church.example" in report.text
+
+
 def test_report_uses_saved_check_results_without_recalculating(tmp_path, monkeypatch):
     test_store = CarePulseStore(tmp_path / "care.sqlite3")
     monkeypatch.setattr("wp_carepulse.main.store", test_store)
