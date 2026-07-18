@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 from pathlib import Path
+from typing import Annotated
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
@@ -22,7 +23,7 @@ def add_site(name: str = Form(...), url: str = Form(...), client: str = Form('')
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     check = fetch_basic_site_check(name, url); store.save_check(site_id, check); return RedirectResponse('/', status_code=303)
 @app.post('/manual-check')
-def manual_check(name: str = Form(...), url: str = Form(...), client: str = Form(''), http_status: int = Form(200), latency_ms: int = Form(250), ssl_days_remaining: int = Form(60), wordpress_version: str = Form('unknown'), update_count: int = Form(0), backup_age_hours: int = Form(24)):
+def manual_check(name: str = Form(...), url: str = Form(...), client: str = Form(''), http_status: Annotated[int, Form(ge=100, le=599)] = 200, latency_ms: int = Form(250), ssl_days_remaining: int = Form(60), wordpress_version: str = Form('unknown'), update_count: int = Form(0), backup_age_hours: int = Form(24)):
     try:
         normalized_url = normalize_site_url(url)
         site_id = store.add_site(name, normalized_url, client)

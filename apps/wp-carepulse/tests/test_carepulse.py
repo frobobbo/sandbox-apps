@@ -167,6 +167,32 @@ def test_manual_check_uses_normalized_url_in_saved_report(tmp_path, monkeypatch)
     assert "URL: https://church.example" in report.text
 
 
+def test_manual_check_rejects_http_status_below_valid_range(tmp_path, monkeypatch):
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+
+    response = TestClient(app).post(
+        "/manual-check",
+        data={"name": "Church", "url": "church.example", "http_status": "99"},
+    )
+
+    assert response.status_code == 422
+    assert test_store.list_sites() == []
+
+
+def test_manual_check_rejects_http_status_above_valid_range(tmp_path, monkeypatch):
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+
+    response = TestClient(app).post(
+        "/manual-check",
+        data={"name": "Church", "url": "church.example", "http_status": "600"},
+    )
+
+    assert response.status_code == 422
+    assert test_store.list_sites() == []
+
+
 def test_report_uses_saved_check_results_without_recalculating(tmp_path, monkeypatch):
     test_store = CarePulseStore(tmp_path / "care.sqlite3")
     monkeypatch.setattr("wp_carepulse.main.store", test_store)
@@ -192,6 +218,16 @@ def test_report_uses_saved_check_results_without_recalculating(tmp_path, monkeyp
     assert response.status_code == 200
     assert "Score: 100/100" in response.text
     assert "Recommended actions:" not in response.text
+
+
+def test_dashboard_limits_manual_http_status_to_valid_range(tmp_path, monkeypatch):
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+
+    response = TestClient(app).get("/")
+
+    assert response.status_code == 200
+    assert 'name="http_status" type="number" min="100" max="599"' in response.text
 
 
 def test_dashboard_shows_recommended_actions_for_latest_checks(tmp_path, monkeypatch):
