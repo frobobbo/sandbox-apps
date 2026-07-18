@@ -79,7 +79,7 @@ def test_store_deduplicates_sites_by_canonical_url(tmp_path):
     assert duplicate_id == first_id
 
 
-def make_test_client():
+def make_test_client(*, raise_server_exceptions=True):
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
@@ -89,7 +89,7 @@ def make_test_client():
 
     from wp_fleetops.main import app
 
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions)
 
 
 def valid_snapshot_payload(**overrides):
@@ -161,6 +161,26 @@ def test_readiness_returns_503_when_template_dependency_is_missing(tmp_path, mon
         "checks": {
             "database": "ok",
             "templates": "missing",
+        },
+    }
+
+
+def test_readiness_returns_503_when_database_dependency_is_unavailable(tmp_path, monkeypatch):
+    from wp_fleetops import main
+
+    unavailable_store = FleetOpsStore(tmp_path / "available.sqlite3")
+    unavailable_store.path = tmp_path / "missing" / "fleet.sqlite3"
+    monkeypatch.setattr(main, "store", unavailable_store)
+
+    response = make_test_client(raise_server_exceptions=False).get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not-ready",
+        "app": "wp-fleetops",
+        "checks": {
+            "database": "unavailable",
+            "templates": "ok",
         },
     }
 
