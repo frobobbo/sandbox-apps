@@ -1,4 +1,8 @@
+import csv
+import io
 import warnings
+
+import pytest
 
 from wp_fleetops.fleet import FleetSite, calculate_health_score, generate_alerts, generate_maintenance_report, normalize_site
 from wp_fleetops.storage import FleetOpsStore
@@ -105,6 +109,13 @@ def valid_snapshot_payload(**overrides):
     }
     payload.update(overrides)
     return payload
+
+
+def test_dashboard_links_to_csv_export():
+    response = make_test_client().get("/")
+
+    assert response.status_code == 200
+    assert 'href="/export.csv"' in response.text
 
 
 def test_snapshot_rejects_negative_operational_metrics():
@@ -214,3 +225,72 @@ def test_export_returns_machine_readable_dashboard_with_summary(tmp_path):
     assert payload["sites"][0]["name"] == "Exported Site"
     assert payload["sites"][0]["url"] == "https://exported.example"
     assert any(alert["severity"] == "critical" for alert in payload["sites"][0]["alerts"])
+
+
+def test_csv_export_downloads_spreadsheet_ready_fleet_rows(tmp_path, monkeypatch):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "store", FleetOpsStore(tmp_path / "fleet.sqlite3"))
+    client = make_test_client()
+    response = client.post(
+        "/snapshot",
+        data=valid_snapshot_payload(
+            name="Church, Downtown",
+            url="https://downtown.example",
+            ssl_days="5",
+            backup_age_hours="96",
+        ),
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+    export_response = client.get("/export.csv")
+
+    assert export_response.status_code == 200
+    assert export_response.headers["content-type"].startswith("text/csv")
+    assert export_response.headers["content-disposition"] == 'attachment; filename="wp-fleetops.csv"'
+    rows = list(csv.DictReader(io.StringIO(export_response.text)))
+    assert rows == [
+        {
+            "name": "Church, Downtown",
+            "url": "https://downtown.example",
+            "score": "55",
+            "status": "up",
+            "ssl_days": "5",
+            "wp_updates": "0",
+            "backup_age_hours": "96",
+            "response_ms": "250",
+            "security_header_count": "3",
+            "critical_alerts": "2",
+            "warning_alerts": "0",
+            "info_alerts": "0",
+            "captured_at": rows[0]["captured_at"],
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "site_name",
+    [
+        '=HYPERLINK("https://malicious.example")',
+        "+SUM(1,1)",
+        "-1+1",
+        "@SUM(1,1)",
+    ],
+)
+def test_csv_export_prevents_spreadsheet_formula_injection(tmp_path, monkeypatch, site_name):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "store", FleetOpsStore(tmp_path / "fleet.sqlite3"))
+    client = make_test_client()
+    response = client.post(
+        "/snapshot",
+        data=valid_snapshot_payload(name=site_name),
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+    export_response = client.get("/export.csv")
+
+    row = next(csv.DictReader(io.StringIO(export_response.text)))
+    assert row["name"] == f"'{site_name}"

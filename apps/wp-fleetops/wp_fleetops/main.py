@@ -1,4 +1,6 @@
 from __future__ import annotations
+import csv
+import io
 import sqlite3
 from pathlib import Path
 from fastapi import FastAPI, Form, Request, Response
@@ -45,3 +47,38 @@ def export_json():
         },
         'sites': rows,
     }
+
+def _spreadsheet_safe(value: str) -> str:
+    return f"'{value}" if value.startswith(('=', '+', '-', '@')) else value
+
+@app.get('/export.csv')
+def export_csv():
+    fieldnames = [
+        'name', 'url', 'score', 'status', 'ssl_days', 'wp_updates',
+        'backup_age_hours', 'response_ms', 'security_header_count',
+        'critical_alerts', 'warning_alerts', 'info_alerts', 'captured_at',
+    ]
+    output = io.StringIO(newline='')
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    for row in store.latest_dashboard():
+        writer.writerow({
+            'name': _spreadsheet_safe(row['name']),
+            'url': row['url'],
+            'score': row['score'],
+            'status': 'up' if row['uptime_ok'] else 'down',
+            'ssl_days': row['ssl_days'],
+            'wp_updates': row['wp_updates'],
+            'backup_age_hours': row['backup_age_hours'],
+            'response_ms': row['response_ms'],
+            'security_header_count': row['security_header_count'],
+            'critical_alerts': sum(a['severity'] == 'critical' for a in row['alerts']),
+            'warning_alerts': sum(a['severity'] == 'warning' for a in row['alerts']),
+            'info_alerts': sum(a['severity'] == 'info' for a in row['alerts']),
+            'captured_at': row['captured_at'],
+        })
+    return Response(
+        content=output.getvalue(),
+        media_type='text/csv',
+        headers={'Content-Disposition': 'attachment; filename="wp-fleetops.csv"'},
+    )

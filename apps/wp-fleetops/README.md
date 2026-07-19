@@ -8,6 +8,7 @@ Kubernetes/homelab-oriented WordPress fleet operations MVP.
 - Generate critical/warning/info alerts.
 - Produce Markdown maintenance reports with fleet-level average scoring.
 - Export the latest dashboard as machine-readable JSON with fleet summary totals.
+- Download spreadsheet-ready CSV fleet rows with alert counts and formula-injection protection.
 - Simple FastAPI/Jinja dashboard.
 - Kubernetes-friendly `/health` and `/ready` probes; readiness returns HTTP 503 with dependency statuses when the database is unavailable or a required template is missing.
 - Reject negative operational metrics and non-HTTP(S) site URLs at snapshot submission.
@@ -25,3 +26,4 @@ Open http://127.0.0.1:8020
 Useful endpoints:
 - `GET /report` returns the Markdown maintenance report.
 - `GET /export.json` returns the latest dashboard rows plus `sites`, `critical_sites`, and `average_score` summary fields for automation.
+- `GET /export.csv` downloads the latest fleet rows, operational metrics, alert counts, and capture timestamps as `wp-fleetops.csv`.
