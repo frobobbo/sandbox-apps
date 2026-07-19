@@ -15,11 +15,11 @@
     <input name="url" placeholder="https://example.com" required>
     <input name="client" placeholder="Client">
     <input name="http_status" type="number" min="100" max="599" value="200">
-    <input name="latency_ms" type="number" value="250">
-    <input name="ssl_days_remaining" type="number" value="60">
+    <input name="latency_ms" type="number" min="0" value="250">
+    <input name="ssl_days_remaining" type="number" min="0" value="60">
     <input name="wordpress_version" value="6.6">
-    <input name="update_count" type="number" value="0">
-    <input name="backup_age_hours" type="number" value="24">
+    <input name="update_count" type="number" min="0" value="0">
+    <input name="backup_age_hours" type="number" min="0" value="24">
     <button>Save check</button>
   </form>
   <h2>Latest checks</h2>

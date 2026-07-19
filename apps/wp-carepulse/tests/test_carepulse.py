@@ -193,6 +193,23 @@ def test_manual_check_rejects_http_status_above_valid_range(tmp_path, monkeypatc
     assert test_store.list_sites() == []
 
 
+@pytest.mark.parametrize(
+    "field",
+    ("latency_ms", "ssl_days_remaining", "update_count", "backup_age_hours"),
+)
+def test_manual_check_rejects_negative_measurements(tmp_path, monkeypatch, field):
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+
+    response = TestClient(app).post(
+        "/manual-check",
+        data={"name": "Church", "url": "church.example", field: "-1"},
+    )
+
+    assert response.status_code == 422
+    assert test_store.list_sites() == []
+
+
 def test_report_uses_saved_check_results_without_recalculating(tmp_path, monkeypatch):
     test_store = CarePulseStore(tmp_path / "care.sqlite3")
     monkeypatch.setattr("wp_carepulse.main.store", test_store)
@@ -228,6 +245,17 @@ def test_dashboard_limits_manual_http_status_to_valid_range(tmp_path, monkeypatc
 
     assert response.status_code == 200
     assert 'name="http_status" type="number" min="100" max="599"' in response.text
+
+
+def test_dashboard_limits_manual_measurements_to_nonnegative_values(tmp_path, monkeypatch):
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+
+    response = TestClient(app).get("/")
+
+    assert response.status_code == 200
+    for field in ("latency_ms", "ssl_days_remaining", "update_count", "backup_age_hours"):
+        assert f'name="{field}" type="number" min="0"' in response.text
 
 
 def test_dashboard_shows_recommended_actions_for_latest_checks(tmp_path, monkeypatch):

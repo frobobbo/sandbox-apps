@@ -23,7 +23,17 @@ def add_site(name: str = Form(...), url: str = Form(...), client: str = Form('')
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     check = fetch_basic_site_check(name, url); store.save_check(site_id, check); return RedirectResponse('/', status_code=303)
 @app.post('/manual-check')
-def manual_check(name: str = Form(...), url: str = Form(...), client: str = Form(''), http_status: Annotated[int, Form(ge=100, le=599)] = 200, latency_ms: int = Form(250), ssl_days_remaining: int = Form(60), wordpress_version: str = Form('unknown'), update_count: int = Form(0), backup_age_hours: int = Form(24)):
+def manual_check(
+    name: str = Form(...),
+    url: str = Form(...),
+    client: str = Form(''),
+    http_status: Annotated[int, Form(ge=100, le=599)] = 200,
+    latency_ms: Annotated[int, Form(ge=0)] = 250,
+    ssl_days_remaining: Annotated[int, Form(ge=0)] = 60,
+    wordpress_version: str = Form('unknown'),
+    update_count: Annotated[int, Form(ge=0)] = 0,
+    backup_age_hours: Annotated[int, Form(ge=0)] = 24,
+):
     try:
         normalized_url = normalize_site_url(url)
         site_id = store.add_site(name, normalized_url, client)
