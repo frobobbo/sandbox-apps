@@ -11,7 +11,7 @@ Kubernetes/homelab-oriented WordPress fleet operations MVP.
 - Download spreadsheet-ready CSV fleet rows with alert counts and formula-injection protection.
 - Simple FastAPI/Jinja dashboard.
 - Kubernetes-friendly `/health` and `/ready` probes; readiness returns HTTP 503 with dependency statuses when the database is unavailable or a required template is missing.
-- Reject negative operational metrics and non-HTTP(S) site URLs at snapshot submission.
+- Reject negative operational metrics, non-HTTP(S) site URLs, and malformed URLs without a hostname at snapshot submission.
 - Canonicalize stored site names and URLs so mixed-case hosts or trailing slashes update the same fleet record.
 
 ## Run

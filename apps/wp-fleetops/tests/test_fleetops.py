@@ -142,6 +142,20 @@ def test_snapshot_rejects_non_http_urls():
     assert response.status_code == 422
 
 
+def test_snapshot_rejects_urls_without_a_hostname(tmp_path, monkeypatch):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "store", FleetOpsStore(tmp_path / "fleet.sqlite3"))
+    response = make_test_client().post(
+        "/snapshot",
+        data=valid_snapshot_payload(url="https://"),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+    assert main.store.latest_dashboard() == []
+
+
 def test_readiness_reports_database_and_template_dependencies():
     client = make_test_client()
 
