@@ -1,7 +1,10 @@
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
+
 import pytest
 from fastapi.testclient import TestClient
 
-from wp_carepulse.checks import evaluate_site, summarize_report
+from wp_carepulse.checks import evaluate_site, fetch_basic_site_check, summarize_report
 from wp_carepulse.main import app
 from wp_carepulse.storage import CarePulseStore, normalize_site_url
 
@@ -41,6 +44,32 @@ def test_evaluate_site_flags_ssl_updates_and_stale_backup():
     assert any("SSL" in item for item in result.actions)
     assert any("updates" in item for item in result.actions)
     assert any("backup" in item.lower() for item in result.actions)
+
+
+def test_basic_site_check_preserves_http_error_status():
+    class UnavailableHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(503)
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), UnavailableHandler)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        result = fetch_basic_site_check(
+            "Unavailable",
+            f"http://127.0.0.1:{server.server_port}",
+        )
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+    assert result.http_status == 503
+    assert any("HTTP status is 503" in action for action in result.actions)
 
 
 def test_store_saves_sites_checks_and_report(tmp_path):

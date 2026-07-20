@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import socket
 import ssl
 import time
+from urllib.error import HTTPError
 import urllib.request
 from urllib.parse import urlparse
 
@@ -77,6 +78,8 @@ def fetch_basic_site_check(name: str, url: str, timeout: int = 10) -> SiteCheck:
         req = urllib.request.Request(url, headers={'User-Agent': 'WP CarePulse/0.1'})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             status = resp.status; headers = dict(resp.headers.items())
+    except HTTPError as exc:
+        status = exc.code
     except Exception:
         status = 0
     latency_ms = int((time.monotonic() - started) * 1000)
