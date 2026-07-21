@@ -31,6 +31,8 @@ def index(request: Request): return templates.TemplateResponse(request,'index.ht
 @app.post('/snapshot')
 def snapshot(name: str=Form(..., min_length=1), url: str=Form(..., min_length=1, pattern=r'^https?://'), uptime_ok: bool=Form(True), ssl_days: int=Form(60, ge=0), wp_updates: int=Form(0, ge=0), backup_age_hours: int=Form(24, ge=0), response_ms: int=Form(250, ge=0), security_header_count: int=Form(3, ge=0)):
     site=normalize_site(FleetSite(name,url,uptime_ok,ssl_days,wp_updates,backup_age_hours,response_ms,security_header_count))
+    if not site.name:
+        raise HTTPException(status_code=422, detail='Site name must not be blank')
     if not urlsplit(site.url).hostname:
         raise HTTPException(status_code=422, detail='URL must include a hostname')
     sid=store.upsert_site(site); store.save_snapshot(sid, site, calculate_health_score(site), generate_alerts(site)); return RedirectResponse('/', status_code=303)

@@ -130,6 +130,21 @@ def test_snapshot_rejects_negative_operational_metrics():
     assert response.status_code == 422
 
 
+def test_snapshot_rejects_whitespace_only_site_names(tmp_path, monkeypatch):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "store", FleetOpsStore(tmp_path / "fleet.sqlite3"))
+
+    response = make_test_client().post(
+        "/snapshot",
+        data=valid_snapshot_payload(name="   "),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+    assert main.store.latest_dashboard() == []
+
+
 def test_snapshot_rejects_non_http_urls():
     client = make_test_client()
 
