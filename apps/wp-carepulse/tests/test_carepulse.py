@@ -9,6 +9,20 @@ from wp_carepulse.main import app
 from wp_carepulse.storage import CarePulseStore, normalize_site_url
 
 
+def test_health_returns_503_when_database_connection_is_unavailable(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    test_store = CarePulseStore(data_dir / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+    (data_dir / "care.sqlite3").unlink()
+    data_dir.rmdir()
+    data_dir.write_text("database directory unavailable")
+
+    response = TestClient(app, raise_server_exceptions=False).get("/health")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Storage unavailable."}
+
+
 def test_evaluate_site_marks_healthy_wordpress_site():
     result = evaluate_site(
         name="Church",
@@ -81,6 +95,12 @@ def test_store_saves_sites_checks_and_report(tmp_path):
     assert check_id > 0
     assert store.list_sites()[0]["name"] == "Church"
     assert store.latest_checks()[0]["status"] == check.status
+
+
+def test_store_verifies_available_database_connection(tmp_path):
+    store = CarePulseStore(tmp_path / "care.sqlite3")
+
+    assert store.verify_connection() is None
 
 
 def test_store_normalizes_bare_domain_urls_for_deduplication(tmp_path):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import sqlite3
 from pathlib import Path
 from typing import Annotated
 from fastapi import FastAPI, Form, HTTPException, Request
@@ -12,7 +13,12 @@ app = FastAPI(title='WP CarePulse')
 templates = Jinja2Templates(directory=str(BASE / 'templates'))
 store = CarePulseStore(BASE / 'data' / 'carepulse.sqlite3')
 @app.get('/health')
-def health(): return {'status': 'ok', 'app': 'wp-carepulse'}
+def health():
+    try:
+        store.verify_connection()
+    except sqlite3.Error as exc:
+        raise HTTPException(status_code=503, detail='Storage unavailable.') from exc
+    return {'status': 'ok', 'app': 'wp-carepulse'}
 @app.get('/', response_class=HTMLResponse)
 def index(request: Request): return templates.TemplateResponse(request, 'index.html', {'sites': store.list_sites(), 'checks': store.latest_checks()})
 @app.post('/sites')
