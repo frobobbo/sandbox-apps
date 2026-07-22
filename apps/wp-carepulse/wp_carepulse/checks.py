@@ -80,6 +80,7 @@ def fetch_basic_site_check(name: str, url: str, timeout: int = 10) -> SiteCheck:
             status = resp.status; headers = dict(resp.headers.items())
     except HTTPError as exc:
         status = exc.code
+        headers = dict(exc.headers.items()) if exc.headers else {}
     except Exception:
         status = 0
     latency_ms = int((time.monotonic() - started) * 1000)

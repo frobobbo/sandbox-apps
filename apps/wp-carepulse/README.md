@@ -9,7 +9,7 @@ Client-facing WordPress care monitoring/reporting MVP.
 - Restrict manual check HTTP status entries to the valid `100`–`599` range in both the dashboard and API.
 - Reject impossible negative latency, SSL-days-remaining, update-count, and backup-age measurements in both the dashboard and API.
 - Score uptime, SSL, latency, WordPress updates, backup freshness, and headers.
-- Preserve actual HTTP error status codes (such as 404 or 503) in automated checks instead of reporting them as generic connection failures.
+- Preserve actual HTTP error status codes (such as 404 or 503) and their response security headers in automated checks instead of reporting them as generic connection failures or missing headers.
 - Store latest checks in SQLite.
 - Expose a storage-aware `/health` readiness endpoint that returns HTTP 503 when SQLite is unavailable.
 - Generate a monthly Markdown care report from the exact saved check results, preserving the recorded score and recommendations.

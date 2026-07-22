@@ -86,6 +86,34 @@ def test_basic_site_check_preserves_http_error_status():
     assert any("HTTP status is 503" in action for action in result.actions)
 
 
+def test_basic_site_check_preserves_security_headers_on_http_errors():
+    class UnavailableHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(503)
+            self.send_header("Strict-Transport-Security", "max-age=31536000")
+            self.send_header("X-Frame-Options", "SAMEORIGIN")
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), UnavailableHandler)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        result = fetch_basic_site_check(
+            "Unavailable",
+            f"http://127.0.0.1:{server.server_port}",
+        )
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+    assert result.security_headers["strict-transport-security"] == "max-age=31536000"
+    assert result.security_headers["x-frame-options"] == "SAMEORIGIN"
+
+
 def test_store_saves_sites_checks_and_report(tmp_path):
     store = CarePulseStore(tmp_path / "care.sqlite3")
     site_id = store.add_site("Church", "https://church.example", "Church Client")
