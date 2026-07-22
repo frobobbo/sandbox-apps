@@ -130,6 +130,24 @@ def test_snapshot_rejects_negative_operational_metrics():
     assert response.status_code == 422
 
 
+def test_snapshot_records_unchecked_uptime_as_down(tmp_path, monkeypatch):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "store", FleetOpsStore(tmp_path / "fleet.sqlite3"))
+    payload = valid_snapshot_payload(name="Offline Site", url="https://offline.example")
+    payload.pop("uptime_ok")
+
+    response = make_test_client().post("/snapshot", data=payload, follow_redirects=False)
+
+    assert response.status_code == 303
+    [row] = main.store.latest_dashboard()
+    assert row["uptime_ok"] == 0
+    assert any(
+        alert["severity"] == "critical" and "down" in alert["message"].lower()
+        for alert in row["alerts"]
+    )
+
+
 def test_snapshot_rejects_whitespace_only_site_names(tmp_path, monkeypatch):
     from wp_fleetops import main
 
