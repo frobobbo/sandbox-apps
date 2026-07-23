@@ -4,7 +4,7 @@ import warnings
 
 import pytest
 
-from wp_fleetops.fleet import FleetSite, calculate_health_score, generate_alerts, generate_maintenance_report, normalize_site
+from wp_fleetops.fleet import Alert, FleetSite, calculate_health_score, generate_alerts, generate_maintenance_report, normalize_site
 from wp_fleetops.storage import FleetOpsStore
 
 
@@ -35,6 +35,14 @@ def test_generate_alerts_catches_operational_risks():
     assert any(alert.severity == "critical" and "down" in alert.message.lower() for alert in alerts)
     assert any("SSL" in alert.message for alert in alerts)
     assert any("backup" in alert.message.lower() for alert in alerts)
+
+
+def test_generate_alerts_warns_when_ssl_expires_within_30_days():
+    site = FleetSite(name="Renew Soon", url="https://renew.example", uptime_ok=True, ssl_days=29, wp_updates=0, backup_age_hours=12, response_ms=200, security_header_count=4)
+
+    alerts = generate_alerts(site)
+
+    assert alerts == [Alert("Renew Soon", "warning", "SSL expires in 29 day(s).")]
 
 
 def test_generate_maintenance_report_groups_fleet_status():

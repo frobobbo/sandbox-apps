@@ -32,7 +32,7 @@ def calculate_health_score(site: FleetSite) -> int:
 def generate_alerts(site: FleetSite) -> list[Alert]:
     alerts=[]
     if not site.uptime_ok: alerts.append(Alert(site.name,'critical',f'{site.name} appears down or unreachable.'))
-    if site.ssl_days < 14: alerts.append(Alert(site.name,'critical' if site.ssl_days < 7 else 'warning',f'SSL expires in {site.ssl_days} day(s).'))
+    if site.ssl_days < 30: alerts.append(Alert(site.name,'critical' if site.ssl_days < 7 else 'warning',f'SSL expires in {site.ssl_days} day(s).'))
     if site.wp_updates: alerts.append(Alert(site.name,'warning',f'{site.wp_updates} WordPress updates pending.'))
     if site.backup_age_hours > 72: alerts.append(Alert(site.name,'critical',f'Latest backup is {site.backup_age_hours} hours old.'))
     if site.response_ms > 1500: alerts.append(Alert(site.name,'warning',f'Homepage response time is {site.response_ms} ms.'))
