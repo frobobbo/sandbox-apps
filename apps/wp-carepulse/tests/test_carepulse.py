@@ -151,6 +151,26 @@ def test_store_normalizes_url_host_case_for_deduplication(tmp_path):
     assert store.list_sites()[0]["url"] == "https://church.example"
 
 
+def test_store_refreshes_site_metadata_when_url_already_exists(tmp_path):
+    store = CarePulseStore(tmp_path / "care.sqlite3")
+    first_id = store.add_site("Old name", "church.example", "Old client")
+
+    second_id = store.add_site("New name", "https://church.example", "New client")
+
+    assert second_id == first_id
+    assert store.list_sites()[0]["name"] == "New name"
+    assert store.list_sites()[0]["client"] == "New client"
+
+
+def test_store_preserves_existing_client_when_duplicate_omits_client(tmp_path):
+    store = CarePulseStore(tmp_path / "care.sqlite3")
+    store.add_site("Old name", "church.example", "Existing client")
+
+    store.add_site("New name", "https://church.example")
+
+    assert store.list_sites()[0]["client"] == "Existing client"
+
+
 def test_normalize_site_url_rejects_blank_or_hostless_urls():
     for invalid_url in ("", "   ", "https://", "mailto:care@example.com"):
         with pytest.raises(ValueError, match="valid site URL"):

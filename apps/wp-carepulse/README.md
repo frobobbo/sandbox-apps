@@ -5,6 +5,7 @@ Client-facing WordPress care monitoring/reporting MVP.
 ## Features
 - Track sites and clients.
 - Normalize bare site domains and mixed-case hosts to `https://` so duplicate entries do not split history and manual reports always show the canonical URL.
+- Refresh the saved site name and any provided client when an existing URL is added again, preserving both its check history and an existing client when the optional field is left blank.
 - Reject blank site names plus blank, hostless, or credential-style URLs before saving a site.
 - Restrict manual check HTTP status entries to the valid `100`–`599` range in both the dashboard and API.
 - Reject impossible negative latency, SSL-days-remaining, update-count, and backup-age measurements in both the dashboard and API.

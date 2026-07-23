@@ -38,8 +38,12 @@ class CarePulseStore:
             raise ValueError('Please enter a site name.')
         url = normalize_site_url(url)
         with self._connect() as con:
-            cur = con.execute('insert or ignore into sites(name,url,client) values(?,?,?)', (name, url, client))
-            if cur.lastrowid: return int(cur.lastrowid)
+            con.execute(
+                'insert into sites(name,url,client) values(?,?,?) '
+                'on conflict(url) do update set name=excluded.name, '
+                "client=case when trim(excluded.client)='' then sites.client else excluded.client end",
+                (name, url, client),
+            )
             return int(con.execute('select id from sites where url=?', (url,)).fetchone()['id'])
     def list_sites(self) -> list[dict]:
         with self._connect() as con: return [dict(r) for r in con.execute('select * from sites order by name')]
