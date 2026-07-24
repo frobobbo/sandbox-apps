@@ -11,6 +11,10 @@ def normalize_site_url(url: str) -> str:
     if '://' not in candidate:
         candidate = f'https://{candidate}'
     parsed = urlparse(candidate)
+    try:
+        parsed.port
+    except ValueError as exc:
+        raise ValueError('Please enter a valid site URL with a host name.') from exc
     scheme = parsed.scheme.lower()
     netloc = parsed.netloc.lower()
     if scheme not in {'http', 'https'} or not parsed.hostname or parsed.username or parsed.password:

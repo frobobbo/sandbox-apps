@@ -177,6 +177,15 @@ def test_normalize_site_url_rejects_blank_or_hostless_urls():
             normalize_site_url(invalid_url)
 
 
+@pytest.mark.parametrize(
+    "invalid_url",
+    ("https://church.example:not-a-port", "https://church.example:65536"),
+)
+def test_normalize_site_url_rejects_malformed_ports(invalid_url):
+    with pytest.raises(ValueError, match="valid site URL"):
+        normalize_site_url(invalid_url)
+
+
 def test_store_rejects_invalid_site_urls(tmp_path):
     store = CarePulseStore(tmp_path / "care.sqlite3")
 
