@@ -33,8 +33,11 @@ def snapshot(name: str=Form(..., min_length=1), url: str=Form(..., min_length=1,
     site=normalize_site(FleetSite(name,url,uptime_ok,ssl_days,wp_updates,backup_age_hours,response_ms,security_header_count))
     if not site.name:
         raise HTTPException(status_code=422, detail='Site name must not be blank')
-    if not urlsplit(site.url).hostname:
+    parsed_url=urlsplit(site.url)
+    if not parsed_url.hostname:
         raise HTTPException(status_code=422, detail='URL must include a hostname')
+    if parsed_url.username is not None or parsed_url.password is not None:
+        raise HTTPException(status_code=422, detail='URL must not include credentials')
     sid=store.upsert_site(site); store.save_snapshot(sid, site, calculate_health_score(site), generate_alerts(site)); return RedirectResponse('/', status_code=303)
 @app.get('/report', response_class=PlainTextResponse)
 def report():

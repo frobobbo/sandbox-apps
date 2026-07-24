@@ -197,6 +197,20 @@ def test_snapshot_rejects_urls_without_a_hostname(tmp_path, monkeypatch):
     assert main.store.latest_dashboard() == []
 
 
+def test_snapshot_rejects_urls_with_embedded_credentials(tmp_path, monkeypatch):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "store", FleetOpsStore(tmp_path / "fleet.sqlite3"))
+    response = make_test_client().post(
+        "/snapshot",
+        data=valid_snapshot_payload(url="https://user:password@example.com"),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+    assert main.store.latest_dashboard() == []
+
+
 def test_readiness_reports_database_and_template_dependencies():
     client = make_test_client()
 
