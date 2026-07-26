@@ -24,10 +24,11 @@ def index(request: Request): return templates.TemplateResponse(request, 'index.h
 @app.post('/sites')
 def add_site(name: str = Form(...), url: str = Form(...), client: str = Form('')):
     try:
-        site_id = store.add_site(name, url, client)
+        normalized_url = normalize_site_url(url)
+        site_id = store.add_site(name, normalized_url, client)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    check = fetch_basic_site_check(name, url); store.save_check(site_id, check); return RedirectResponse('/', status_code=303)
+    check = fetch_basic_site_check(name, normalized_url); store.save_check(site_id, check); return RedirectResponse('/', status_code=303)
 @app.post('/manual-check')
 def manual_check(
     name: str = Form(...),

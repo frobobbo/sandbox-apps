@@ -257,6 +257,37 @@ def test_summarize_report_prioritizes_sites_needing_attention():
     assert report.index("## Urgent") < report.index("## Maintenance") < report.index("## Healthy")
 
 
+def test_add_site_check_uses_normalized_url_in_saved_report(tmp_path, monkeypatch):
+    class HealthyHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            pass
+
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), HealthyHandler)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        canonical_url = f"http://127.0.0.1:{server.server_port}"
+        response = TestClient(app).post(
+            "/sites",
+            data={"name": "Church", "url": f"HTTP://127.0.0.1:{server.server_port}/"},
+            follow_redirects=False,
+        )
+        report = TestClient(app).get("/report")
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+    assert response.status_code == 303
+    assert f"URL: {canonical_url}\n" in report.text
+
+
 def test_manual_check_uses_normalized_url_in_saved_report(tmp_path, monkeypatch):
     test_store = CarePulseStore(tmp_path / "care.sqlite3")
     monkeypatch.setattr("wp_carepulse.main.store", test_store)
