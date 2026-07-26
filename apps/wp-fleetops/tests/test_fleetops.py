@@ -126,6 +126,16 @@ def test_dashboard_links_to_csv_export():
     assert 'href="/export.csv"' in response.text
 
 
+def test_dashboard_sends_defensive_browser_headers():
+    response = make_test_client().get("/")
+
+    assert response.status_code == 200
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["content-security-policy"] == "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+
+
 def test_snapshot_rejects_negative_operational_metrics():
     client = make_test_client()
 

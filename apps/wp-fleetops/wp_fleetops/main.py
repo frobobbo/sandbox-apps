@@ -13,6 +13,16 @@ BASE=Path(__file__).resolve().parent.parent
 app=FastAPI(title='WP FleetOps')
 templates=Jinja2Templates(directory=str(BASE/'templates'))
 store=FleetOpsStore(BASE/'data'/'fleetops.sqlite3')
+
+@app.middleware('http')
+async def add_browser_security_headers(request: Request, call_next):
+    response=await call_next(request)
+    response.headers['X-Content-Type-Options']='nosniff'
+    response.headers['X-Frame-Options']='DENY'
+    response.headers['Referrer-Policy']='no-referrer'
+    response.headers['Content-Security-Policy']="default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+    return response
+
 @app.get('/health')
 def health(): return {'status':'ok','app':'wp-fleetops'}
 @app.get('/ready')
