@@ -60,6 +60,23 @@ def test_evaluate_site_flags_ssl_updates_and_stale_backup():
     assert any("backup" in item.lower() for item in result.actions)
 
 
+def test_evaluate_site_recommends_enabling_https_for_http_sites():
+    result = evaluate_site(
+        name="Legacy",
+        url="http://legacy.example",
+        http_status=200,
+        latency_ms=240,
+        ssl_days_remaining=0,
+        wordpress_version="6.6.1",
+        update_count=0,
+        backup_age_hours=12,
+        security_headers={},
+    )
+
+    assert "Enable HTTPS for encrypted visitor connections." in result.actions
+    assert not any("Renew SSL certificate" in item for item in result.actions)
+
+
 def test_basic_site_check_preserves_http_error_status():
     class UnavailableHandler(BaseHTTPRequestHandler):
         def do_GET(self):

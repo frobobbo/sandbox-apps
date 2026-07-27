@@ -38,7 +38,9 @@ def evaluate_site(name: str, url: str, http_status: int, latency_ms: int, ssl_da
         score -= 45; actions.append(f'Investigate uptime: HTTP status is {http_status}.')
     if latency_ms > 1200:
         score -= 10; actions.append(f'Improve performance: homepage response time is {latency_ms} ms.')
-    if ssl_days_remaining < 14:
+    if urlparse(url).scheme.lower() == 'http':
+        score -= 25; actions.append('Enable HTTPS for encrypted visitor connections.')
+    elif ssl_days_remaining < 14:
         score -= 25; actions.append(f'Renew SSL certificate: only {ssl_days_remaining} day(s) remaining.')
     elif ssl_days_remaining < 30:
         score -= 10; actions.append(f'Plan SSL renewal: {ssl_days_remaining} day(s) remaining.')
