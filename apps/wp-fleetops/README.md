@@ -6,7 +6,7 @@ Kubernetes/homelab-oriented WordPress fleet operations MVP.
 - Store fleet snapshots for many WordPress sites.
 - Calculate health scores.
 - Generate critical/warning/info alerts, including a 30-day SSL renewal warning window.
-- Produce Markdown maintenance reports with fleet-level average scoring.
+- Produce Markdown maintenance reports with fleet-level average scoring and lowest-scoring sites listed first.
 - Export the latest dashboard as machine-readable JSON with fleet summary totals.
 - Download spreadsheet-ready CSV fleet rows with alert counts and formula-injection protection.
 - Simple FastAPI/Jinja dashboard with defensive content-type, framing, referrer, and Content Security Policy headers.

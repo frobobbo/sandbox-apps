@@ -69,6 +69,18 @@ def test_generate_maintenance_report_includes_average_fleet_score():
     assert "Average fleet score: 65/100" in report
 
 
+def test_generate_maintenance_report_prioritizes_lowest_scoring_sites():
+    sites = [
+        FleetSite("Healthy", "https://healthy.example", True, 80, 0, 12, 200, 4),
+        FleetSite("Critical", "https://critical.example", False, 5, 4, 100, 2000, 0),
+        FleetSite("Watch", "https://watch.example", True, 20, 0, 12, 200, 4),
+    ]
+
+    report = generate_maintenance_report(sites)
+
+    assert report.index("## Critical") < report.index("## Watch") < report.index("## Healthy")
+
+
 def test_store_persists_fleet_snapshots(tmp_path):
     store = FleetOpsStore(tmp_path / "fleet.sqlite3")
     site = FleetSite("Church", "https://church.example", True, 80, 0, 12, 200, 4)
