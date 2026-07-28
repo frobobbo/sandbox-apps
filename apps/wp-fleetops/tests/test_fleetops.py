@@ -45,6 +45,14 @@ def test_generate_alerts_warns_when_ssl_expires_within_30_days():
     assert alerts == [Alert("Renew Soon", "warning", "SSL expires in 29 day(s).")]
 
 
+def test_generate_alerts_warns_before_backup_becomes_critical():
+    site = FleetSite(name="Backup Watch", url="https://backup-watch.example", uptime_ok=True, ssl_days=60, wp_updates=0, backup_age_hours=48, response_ms=200, security_header_count=4)
+
+    alerts = generate_alerts(site)
+
+    assert alerts == [Alert("Backup Watch", "warning", "Latest backup is 48 hours old.")]
+
+
 def test_generate_maintenance_report_groups_fleet_status():
     sites = [
         FleetSite("A", "https://a.example", True, 80, 0, 12, 200, 4),
