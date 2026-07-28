@@ -168,6 +168,25 @@ def test_store_normalizes_url_host_case_for_deduplication(tmp_path):
     assert store.list_sites()[0]["url"] == "https://church.example"
 
 
+@pytest.mark.parametrize(
+    ("url_with_default_port", "canonical_url"),
+    (
+        ("https://church.example:443", "https://church.example"),
+        ("http://church.example:80", "http://church.example"),
+    ),
+)
+def test_store_normalizes_default_ports_for_deduplication(
+    tmp_path, url_with_default_port, canonical_url
+):
+    store = CarePulseStore(tmp_path / "care.sqlite3")
+
+    first_id = store.add_site("Church", url_with_default_port, "Church Client")
+    second_id = store.add_site("Church", canonical_url, "Church Client")
+
+    assert second_id == first_id
+    assert store.list_sites()[0]["url"] == canonical_url
+
+
 def test_store_refreshes_site_metadata_when_url_already_exists(tmp_path):
     store = CarePulseStore(tmp_path / "care.sqlite3")
     first_id = store.add_site("Old name", "church.example", "Old client")

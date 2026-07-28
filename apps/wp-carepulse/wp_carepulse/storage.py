@@ -12,11 +12,14 @@ def normalize_site_url(url: str) -> str:
         candidate = f'https://{candidate}'
     parsed = urlparse(candidate)
     try:
-        parsed.port
+        port = parsed.port
     except ValueError as exc:
         raise ValueError('Please enter a valid site URL with a host name.') from exc
     scheme = parsed.scheme.lower()
     netloc = parsed.netloc.lower()
+    default_port = {'http': 80, 'https': 443}.get(scheme)
+    if default_port is not None and port == default_port:
+        netloc = netloc.rsplit(':', 1)[0]
     if scheme not in {'http', 'https'} or not parsed.hostname or parsed.username or parsed.password:
         raise ValueError('Please enter a valid site URL with a host name.')
     path = parsed.path
