@@ -1,3 +1,4 @@
+from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 
@@ -279,6 +280,17 @@ def test_summarize_report_is_client_friendly():
     assert "Monthly WordPress Care Report" in report
     assert "Needs attention" in report
     assert "B" in report
+
+
+def test_summarize_report_shows_when_each_site_was_last_checked():
+    check = evaluate_site(
+        "Church", "https://church.example", 200, 100, 90, "6.6", 0, 10, {}
+    )
+    check = replace(check, checked_at="2026-07-29T15:04:05.123456+00:00")
+
+    report = summarize_report([check])
+
+    assert "Last checked: 2026-07-29 15:04 UTC" in report
 
 
 def test_summarize_report_prioritizes_sites_needing_attention():

@@ -95,7 +95,20 @@ def summarize_report(checks: list[SiteCheck]) -> str:
     severity_order = {'red': 0, 'yellow': 1, 'green': 2}
     for c in sorted(checks, key=lambda check: (severity_order[check.status], check.name.lower())):
         heading = 'Healthy' if c.status == 'green' else ('Maintenance scheduled' if c.status == 'yellow' else 'Needs attention')
-        lines += [f'## {c.name} — {heading}', '', f'Score: {c.score}/100', f'URL: {c.url}', c.summary, '']
+        checked_at = (
+            datetime.fromisoformat(c.checked_at)
+            .astimezone(timezone.utc)
+            .strftime('%Y-%m-%d %H:%M UTC')
+        )
+        lines += [
+            f'## {c.name} — {heading}',
+            '',
+            f'Score: {c.score}/100',
+            f'URL: {c.url}',
+            f'Last checked: {checked_at}',
+            c.summary,
+            '',
+        ]
         if c.actions:
             lines.append('Recommended actions:'); lines += [f'- {a}' for a in c.actions]; lines.append('')
     return '\n'.join(lines).strip() + '\n'
