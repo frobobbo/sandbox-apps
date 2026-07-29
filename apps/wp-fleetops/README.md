@@ -5,7 +5,7 @@ Kubernetes/homelab-oriented WordPress fleet operations MVP.
 ## Features
 - Store fleet snapshots for many WordPress sites.
 - Calculate health scores.
-- Generate critical/warning/info alerts, including a 30-day SSL renewal warning window and backup-age warnings after 36 hours that escalate to critical after 72 hours.
+- Generate critical/warning/info alerts, including a critical escalation at 10 pending WordPress updates, a 30-day SSL renewal warning window, and backup-age warnings after 36 hours that escalate to critical after 72 hours.
 - Produce Markdown maintenance reports with fleet-level average scoring and lowest-scoring sites listed first.
 - Export the latest dashboard as machine-readable JSON with fleet summary totals.
 - Download spreadsheet-ready CSV fleet rows with alert counts and formula-injection protection.

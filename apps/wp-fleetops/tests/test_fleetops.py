@@ -53,6 +53,14 @@ def test_generate_alerts_warns_before_backup_becomes_critical():
     assert alerts == [Alert("Backup Watch", "warning", "Latest backup is 48 hours old.")]
 
 
+def test_generate_alerts_escalates_large_wordpress_update_backlog():
+    site = FleetSite(name="Patch Backlog", url="https://patches.example", uptime_ok=True, ssl_days=60, wp_updates=10, backup_age_hours=12, response_ms=200, security_header_count=4)
+
+    alerts = generate_alerts(site)
+
+    assert alerts == [Alert("Patch Backlog", "critical", "10 WordPress updates pending.")]
+
+
 def test_generate_maintenance_report_groups_fleet_status():
     sites = [
         FleetSite("A", "https://a.example", True, 80, 0, 12, 200, 4),
