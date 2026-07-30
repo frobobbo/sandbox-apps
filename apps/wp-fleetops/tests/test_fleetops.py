@@ -61,6 +61,14 @@ def test_generate_alerts_escalates_large_wordpress_update_backlog():
     assert alerts == [Alert("Patch Backlog", "critical", "10 WordPress updates pending.")]
 
 
+def test_generate_alerts_escalates_severely_slow_homepage():
+    site = FleetSite(name="Slow Site", url="https://slow.example", uptime_ok=True, ssl_days=60, wp_updates=0, backup_age_hours=12, response_ms=5000, security_header_count=4)
+
+    alerts = generate_alerts(site)
+
+    assert alerts == [Alert("Slow Site", "critical", "Homepage response time is 5000 ms.")]
+
+
 def test_generate_maintenance_report_groups_fleet_status():
     sites = [
         FleetSite("A", "https://a.example", True, 80, 0, 12, 200, 4),
