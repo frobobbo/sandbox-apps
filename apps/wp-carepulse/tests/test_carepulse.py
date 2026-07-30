@@ -78,6 +78,22 @@ def test_evaluate_site_recommends_enabling_https_for_http_sites():
     assert not any("Renew SSL certificate" in item for item in result.actions)
 
 
+def test_evaluate_site_does_not_recommend_hsts_before_https_is_enabled():
+    result = evaluate_site(
+        name="Legacy",
+        url="http://legacy.example",
+        http_status=200,
+        latency_ms=240,
+        ssl_days_remaining=0,
+        wordpress_version="6.6.1",
+        update_count=0,
+        backup_age_hours=12,
+        security_headers={},
+    )
+
+    assert not any("HSTS" in item for item in result.actions)
+
+
 def test_basic_site_check_preserves_http_error_status():
     class UnavailableHandler(BaseHTTPRequestHandler):
         def do_GET(self):

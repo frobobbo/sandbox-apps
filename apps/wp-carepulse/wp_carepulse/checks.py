@@ -50,7 +50,7 @@ def evaluate_site(name: str, url: str, http_status: int, latency_ms: int, ssl_da
         score -= 20; actions.append(f'Verify backups: latest backup appears {backup_age_hours} hours old.')
     elif backup_age_hours > 36:
         score -= 8; actions.append(f'Check backup freshness: latest backup is {backup_age_hours} hours old.')
-    if 'strict-transport-security' not in headers:
+    if urlparse(url).scheme.lower() == 'https' and 'strict-transport-security' not in headers:
         score -= 4; actions.append('Add or verify HSTS security header.')
     if 'x-frame-options' not in headers and 'content-security-policy' not in headers:
         score -= 4; actions.append('Add clickjacking protection header.')
