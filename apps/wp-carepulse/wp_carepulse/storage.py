@@ -23,9 +23,9 @@ def normalize_site_url(url: str) -> str:
     if scheme not in {'http', 'https'} or not parsed.hostname or parsed.username or parsed.password:
         raise ValueError('Please enter a valid site URL with a host name.')
     path = parsed.path
-    if path == '/' and not parsed.query and not parsed.fragment:
+    if path == '/' and not parsed.query:
         path = ''
-    return urlunparse((scheme, netloc, path, '', parsed.query, parsed.fragment))
+    return urlunparse((scheme, netloc, path, '', parsed.query, ''))
 
 class CarePulseStore:
     def __init__(self, path: str | Path = 'data/carepulse.sqlite3'):

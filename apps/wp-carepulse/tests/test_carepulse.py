@@ -185,6 +185,20 @@ def test_store_normalizes_url_host_case_for_deduplication(tmp_path):
     assert store.list_sites()[0]["url"] == "https://church.example"
 
 
+def test_store_ignores_url_fragments_for_deduplication(tmp_path):
+    store = CarePulseStore(tmp_path / "care.sqlite3")
+
+    first_id = store.add_site(
+        "Church", "https://church.example/#contact", "Church Client"
+    )
+    second_id = store.add_site(
+        "Church", "https://church.example", "Church Client"
+    )
+
+    assert second_id == first_id
+    assert store.list_sites()[0]["url"] == "https://church.example"
+
+
 @pytest.mark.parametrize(
     ("url_with_default_port", "canonical_url"),
     (
