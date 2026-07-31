@@ -44,6 +44,10 @@ def snapshot(name: str=Form(..., min_length=1), url: str=Form(..., min_length=1,
     if not site.name:
         raise HTTPException(status_code=422, detail='Site name must not be blank')
     parsed_url=urlsplit(site.url)
+    try:
+        _ = parsed_url.port
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail='URL must include a valid port') from exc
     if not parsed_url.hostname:
         raise HTTPException(status_code=422, detail='URL must include a hostname')
     if parsed_url.username is not None or parsed_url.password is not None:
