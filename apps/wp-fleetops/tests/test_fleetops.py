@@ -172,6 +172,13 @@ def test_dashboard_sends_defensive_browser_headers():
     assert response.headers["content-security-policy"] == "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
 
 
+def test_dashboard_prevents_caching_operational_data():
+    response = make_test_client().get("/")
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+
+
 def test_snapshot_rejects_negative_operational_metrics():
     client = make_test_client()
 

@@ -21,6 +21,7 @@ async def add_browser_security_headers(request: Request, call_next):
     response.headers['X-Frame-Options']='DENY'
     response.headers['Referrer-Policy']='no-referrer'
     response.headers['Content-Security-Policy']="default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+    response.headers['Cache-Control']='no-store'
     return response
 
 @app.get('/health')
