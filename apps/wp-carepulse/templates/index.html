@@ -32,8 +32,8 @@
       <td>{{c.score}}</td>
       <td>{{c.http_status}}</td>
       <td>{{c.ssl_days_remaining}}</td>
-      <td>{{c.update_count}}</td>
-      <td>{{c.backup_age_hours}}h</td>
+      <td>{% if c.maintenance_metrics_verified %}{{c.update_count}}{% else %}Not checked{% endif %}</td>
+      <td>{% if c.maintenance_metrics_verified %}{{c.backup_age_hours}}h{% else %}Not checked{% endif %}</td>
       <td>{{c.summary}}</td>
       <td>
         {% if c.actions %}

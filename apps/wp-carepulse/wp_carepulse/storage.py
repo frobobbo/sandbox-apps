@@ -63,5 +63,11 @@ class CarePulseStore:
         with self._connect() as con:
             rows=[]
             for r in con.execute(sql):
-                d=dict(r); d['actions']=json.loads(d.pop('actions_json')); rows.append(d)
+                d=dict(r)
+                d['actions']=json.loads(d.pop('actions_json'))
+                raw_check = json.loads(d['raw_json'])
+                d['maintenance_metrics_verified'] = raw_check.get(
+                    'maintenance_metrics_verified', True
+                )
+                rows.append(d)
             return rows

@@ -148,6 +148,35 @@ def test_basic_site_check_preserves_security_headers_on_http_errors():
     assert result.security_headers["x-frame-options"] == "SAMEORIGIN"
 
 
+def test_basic_site_check_marks_wordpress_maintenance_metrics_unverified():
+    class HealthyHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), HealthyHandler)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        result = fetch_basic_site_check(
+            "Church",
+            f"http://127.0.0.1:{server.server_port}",
+        )
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+    assert result.maintenance_metrics_verified is False
+    assert (
+        "Verify WordPress updates and backup freshness; the automated check cannot inspect wp-admin."
+        in result.actions
+    )
+
+
 def test_store_saves_sites_checks_and_report(tmp_path):
     store = CarePulseStore(tmp_path / "care.sqlite3")
     site_id = store.add_site("Church", "https://church.example", "Church Client")
@@ -471,6 +500,26 @@ def test_dashboard_limits_manual_measurements_to_nonnegative_values(tmp_path, mo
     assert response.status_code == 200
     for field in ("latency_ms", "ssl_days_remaining", "update_count", "backup_age_hours"):
         assert f'name="{field}" type="number" min="0"' in response.text
+
+
+def test_dashboard_labels_unverified_maintenance_metrics_as_not_checked(
+    tmp_path, monkeypatch
+):
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+    site_id = test_store.add_site("Church", "https://church.example")
+    check = evaluate_site(
+        "Church", "https://church.example", 200, 100, 90, "unknown", 0, 0, {}
+    )
+    test_store.save_check(
+        site_id,
+        replace(check, maintenance_metrics_verified=False),
+    )
+
+    response = TestClient(app).get("/")
+
+    assert response.status_code == 200
+    assert response.text.count(">Not checked</td>") == 2
 
 
 def test_dashboard_shows_recommended_actions_for_latest_checks(tmp_path, monkeypatch):

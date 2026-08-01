@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 import socket
 import ssl
@@ -25,6 +25,7 @@ class SiteCheck:
     summary: str
     actions: list[str]
     checked_at: str
+    maintenance_metrics_verified: bool = True
     def to_dict(self) -> dict:
         data = asdict(self); data['security_headers'] = dict(self.security_headers); return data
 
@@ -87,7 +88,15 @@ def fetch_basic_site_check(name: str, url: str, timeout: int = 10) -> SiteCheck:
         status = 0
     latency_ms = int((time.monotonic() - started) * 1000)
     ssl_days = ssl_days_remaining(url, timeout=timeout) if parsed.scheme == 'https' else 0
-    return evaluate_site(name, url, status, latency_ms, ssl_days, 'unknown', 0, 0, headers)
+    check = evaluate_site(name, url, status, latency_ms, ssl_days, 'unknown', 0, 0, headers)
+    return replace(
+        check,
+        actions=[
+            *check.actions,
+            'Verify WordPress updates and backup freshness; the automated check cannot inspect wp-admin.',
+        ],
+        maintenance_metrics_verified=False,
+    )
 
 def summarize_report(checks: list[SiteCheck]) -> str:
     total=len(checks); green=sum(1 for c in checks if c.status=='green'); yellow=sum(1 for c in checks if c.status=='yellow'); red=sum(1 for c in checks if c.status=='red')
