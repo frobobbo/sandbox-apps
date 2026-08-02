@@ -47,7 +47,28 @@ def generate_maintenance_report(sites: list[FleetSite]) -> str:
         key=lambda item: item[1],
     )
     average_score=round(sum(score for _,score,_ in scored)/len(scored)) if scored else 0
-    lines += [f'Sites monitored: {len(sites)}', f'Average fleet score: {average_score}/100', f"Critical sites: {sum(1 for _,_,a in scored if any(x.severity=='critical' for x in a))}", '']
+    alert_counts = {
+        severity: sum(
+            alert.severity == severity
+            for _, _, alerts in scored
+            for alert in alerts
+        )
+        for severity in ('critical', 'warning', 'info')
+    }
+    critical_sites = sum(
+        any(alert.severity == 'critical' for alert in alerts)
+        for _, _, alerts in scored
+    )
+    lines += [
+        f'Sites monitored: {len(sites)}',
+        f'Average fleet score: {average_score}/100',
+        f'Critical sites: {critical_sites}',
+        (
+            f"Alerts: {alert_counts['critical']} critical, "
+            f"{alert_counts['warning']} warning, {alert_counts['info']} info"
+        ),
+        '',
+    ]
     for site,score,alerts in scored:
         state='Healthy' if score>=85 else ('Watch' if score>=65 else 'Needs attention')
         lines += [f'## {site.name} — {state}', '', f'Score: {score}/100', f'URL: {site.url}', '']

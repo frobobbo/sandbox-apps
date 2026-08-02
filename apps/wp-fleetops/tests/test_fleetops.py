@@ -93,6 +93,17 @@ def test_generate_maintenance_report_includes_average_fleet_score():
     assert "Average fleet score: 65/100" in report
 
 
+def test_generate_maintenance_report_summarizes_alerts_by_severity():
+    sites = [
+        FleetSite("Down", "https://down.example", False, 80, 0, 12, 200, 4),
+        FleetSite("Watch", "https://watch.example", True, 20, 0, 48, 200, 1),
+    ]
+
+    report = generate_maintenance_report(sites)
+
+    assert "Alerts: 1 critical, 2 warning, 1 info" in report
+
+
 def test_generate_maintenance_report_prioritizes_lowest_scoring_sites():
     sites = [
         FleetSite("Healthy", "https://healthy.example", True, 80, 0, 12, 200, 4),
