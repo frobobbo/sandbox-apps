@@ -35,7 +35,9 @@ def _status_from_score(score: int) -> str:
 def evaluate_site(name: str, url: str, http_status: int, latency_ms: int, ssl_days_remaining: int, wordpress_version: str, update_count: int, backup_age_hours: int, security_headers: dict[str, str] | None = None) -> SiteCheck:
     headers = {k.lower(): v for k, v in (security_headers or {}).items()}
     score = 100; actions: list[str] = []
-    if http_status < 200 or http_status >= 400:
+    if http_status == 0:
+        score -= 45; actions.append('Investigate connectivity: no HTTP response was received.')
+    elif http_status < 200 or http_status >= 400:
         score -= 45; actions.append(f'Investigate uptime: HTTP status is {http_status}.')
     if latency_ms > 1200:
         score -= 10; actions.append(f'Improve performance: homepage response time is {latency_ms} ms.')

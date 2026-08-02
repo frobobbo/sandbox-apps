@@ -12,7 +12,7 @@ Client-facing WordPress care monitoring/reporting MVP.
 - Score uptime, SSL, latency, WordPress updates, backup freshness, and headers.
 - Mark WordPress update and backup metrics from basic automated HTTP checks as unverified, show them as `Not checked` on the dashboard, and include a verification action in client reports instead of presenting placeholder zeroes as confirmed facts.
 - Recommend enabling HTTPS for plain-HTTP sites without premature certificate-renewal or HSTS advice.
-- Preserve actual HTTP error status codes (such as 404 or 503) and their response security headers in automated checks instead of reporting them as generic connection failures or missing headers.
+- Preserve actual HTTP error status codes (such as 404 or 503) and their response security headers in automated checks, while describing DNS, TLS, timeout, and connection failures as a missing HTTP response instead of the invalid status `0`.
 - Store latest checks in SQLite.
 - Expose a storage-aware `/health` readiness endpoint that returns HTTP 503 when SQLite is unavailable.
 - Generate a monthly Markdown care report from the exact saved check results, preserving the recorded score, recommendations, and a readable UTC timestamp for each site's latest check.
