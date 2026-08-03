@@ -35,7 +35,8 @@ def _status_from_score(score: int) -> str:
 def evaluate_site(name: str, url: str, http_status: int, latency_ms: int, ssl_days_remaining: int, wordpress_version: str, update_count: int, backup_age_hours: int, security_headers: dict[str, str] | None = None) -> SiteCheck:
     headers = {k.lower(): v for k, v in (security_headers or {}).items()}
     score = 100; actions: list[str] = []
-    if http_status == 0:
+    has_http_response = http_status != 0
+    if not has_http_response:
         score -= 45; actions.append('Investigate connectivity: no HTTP response was received.')
     elif http_status < 200 or http_status >= 400:
         score -= 45; actions.append(f'Investigate uptime: HTTP status is {http_status}.')
@@ -43,9 +44,9 @@ def evaluate_site(name: str, url: str, http_status: int, latency_ms: int, ssl_da
         score -= 10; actions.append(f'Improve performance: homepage response time is {latency_ms} ms.')
     if urlparse(url).scheme.lower() == 'http':
         score -= 25; actions.append('Enable HTTPS for encrypted visitor connections.')
-    elif ssl_days_remaining < 14:
+    elif has_http_response and ssl_days_remaining < 14:
         score -= 25; actions.append(f'Renew SSL certificate: only {ssl_days_remaining} day(s) remaining.')
-    elif ssl_days_remaining < 30:
+    elif has_http_response and ssl_days_remaining < 30:
         score -= 10; actions.append(f'Plan SSL renewal: {ssl_days_remaining} day(s) remaining.')
     if update_count > 0:
         score -= min(20, update_count * 3); actions.append(f'Apply WordPress/plugin/theme updates: {update_count} pending updates.')
@@ -53,9 +54,9 @@ def evaluate_site(name: str, url: str, http_status: int, latency_ms: int, ssl_da
         score -= 20; actions.append(f'Verify backups: latest backup appears {backup_age_hours} hours old.')
     elif backup_age_hours > 36:
         score -= 8; actions.append(f'Check backup freshness: latest backup is {backup_age_hours} hours old.')
-    if urlparse(url).scheme.lower() == 'https' and 'strict-transport-security' not in headers:
+    if has_http_response and urlparse(url).scheme.lower() == 'https' and 'strict-transport-security' not in headers:
         score -= 4; actions.append('Add or verify HSTS security header.')
-    if 'x-frame-options' not in headers and 'content-security-policy' not in headers:
+    if has_http_response and 'x-frame-options' not in headers and 'content-security-policy' not in headers:
         score -= 4; actions.append('Add clickjacking protection header.')
     score = max(0, min(100, score)); status = _status_from_score(score)
     if status == 'green': summary = f'{name} looks healthy. Minor recommendations can be handled during normal maintenance.'

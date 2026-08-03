@@ -111,6 +111,26 @@ def test_evaluate_site_describes_missing_http_response_as_connectivity_failure()
     assert not any("HTTP status is 0" in item for item in result.actions)
 
 
+def test_evaluate_site_does_not_infer_security_findings_without_http_response():
+    result = evaluate_site(
+        name="Offline",
+        url="https://offline.example",
+        http_status=0,
+        latency_ms=240,
+        ssl_days_remaining=0,
+        wordpress_version="unknown",
+        update_count=0,
+        backup_age_hours=12,
+        security_headers={},
+    )
+
+    assert not any(
+        finding in action
+        for action in result.actions
+        for finding in ("SSL certificate", "HSTS", "clickjacking")
+    )
+
+
 def test_basic_site_check_preserves_http_error_status():
     class UnavailableHandler(BaseHTTPRequestHandler):
         def do_GET(self):
