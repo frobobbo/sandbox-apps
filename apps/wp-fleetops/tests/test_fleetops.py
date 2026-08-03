@@ -202,6 +202,31 @@ def test_snapshot_rejects_negative_operational_metrics():
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize(
+    "metric_name",
+    [
+        "ssl_days",
+        "wp_updates",
+        "backup_age_hours",
+        "response_ms",
+        "security_header_count",
+    ],
+)
+def test_snapshot_rejects_metrics_larger_than_sqlite_can_store(tmp_path, monkeypatch, metric_name):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "store", FleetOpsStore(tmp_path / "fleet.sqlite3"))
+
+    response = make_test_client(raise_server_exceptions=False).post(
+        "/snapshot",
+        data=valid_snapshot_payload(**{metric_name: str(2**63)}),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+    assert main.store.latest_dashboard() == []
+
+
 def test_snapshot_records_unchecked_uptime_as_down(tmp_path, monkeypatch):
     from wp_fleetops import main
 
