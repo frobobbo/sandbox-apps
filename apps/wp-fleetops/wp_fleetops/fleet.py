@@ -70,7 +70,8 @@ def generate_maintenance_report(sites: list[FleetSite]) -> str:
         '',
     ]
     for site,score,alerts in scored:
-        state='Healthy' if score>=85 else ('Watch' if score>=65 else 'Needs attention')
+        has_critical_alert=any(alert.severity == 'critical' for alert in alerts)
+        state='Needs attention' if has_critical_alert or score<65 else ('Watch' if score<85 else 'Healthy')
         lines += [f'## {site.name} — {state}', '', f'Score: {score}/100', f'URL: {site.url}', '']
         lines += ['Recommended actions:']
         lines += [f'- [{a.severity}] {a.message}' for a in alerts] if alerts else ['- Continue normal maintenance cadence.']

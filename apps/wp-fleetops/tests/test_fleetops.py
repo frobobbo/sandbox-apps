@@ -116,6 +116,14 @@ def test_generate_maintenance_report_prioritizes_lowest_scoring_sites():
     assert report.index("## Critical") < report.index("## Watch") < report.index("## Healthy")
 
 
+def test_generate_maintenance_report_marks_any_critical_alert_as_needs_attention():
+    site = FleetSite("Slow Critical", "https://slow.example", True, 80, 0, 12, 5000, 4)
+
+    report = generate_maintenance_report([site])
+
+    assert "## Slow Critical — Needs attention" in report
+
+
 def test_store_persists_fleet_snapshots(tmp_path):
     store = FleetOpsStore(tmp_path / "fleet.sqlite3")
     site = FleetSite("Church", "https://church.example", True, 80, 0, 12, 200, 4)
