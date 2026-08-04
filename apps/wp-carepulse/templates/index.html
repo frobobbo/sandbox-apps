@@ -9,7 +9,15 @@
 <body>
   <h1>WP CarePulse</h1>
   <p>Client-friendly WordPress monitoring and monthly care reports.</p>
-  <h2>Add/manual sample site check</h2>
+  <h2>Run automated site check</h2>
+  <p>Checks the homepage response, TLS certificate, latency, and security headers.</p>
+  <form method="post" action="/sites">
+    <input name="name" placeholder="Site name" required>
+    <input name="url" placeholder="https://example.com" required>
+    <input name="client" placeholder="Client">
+    <button>Run live check</button>
+  </form>
+  <h2>Record manual site check</h2>
   <form method="post" action="/manual-check">
     <input name="name" placeholder="Site name" required>
     <input name="url" placeholder="https://example.com" required>

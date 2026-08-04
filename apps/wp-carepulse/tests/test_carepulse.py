@@ -518,6 +518,17 @@ def test_report_uses_saved_check_results_without_recalculating(tmp_path, monkeyp
     assert "Recommended actions:" not in response.text
 
 
+def test_dashboard_offers_automated_site_check_form(tmp_path, monkeypatch):
+    test_store = CarePulseStore(tmp_path / "care.sqlite3")
+    monkeypatch.setattr("wp_carepulse.main.store", test_store)
+
+    response = TestClient(app).get("/")
+
+    assert response.status_code == 200
+    assert '<form method="post" action="/sites">' in response.text
+    assert "Run live check" in response.text
+
+
 def test_dashboard_limits_manual_http_status_to_valid_range(tmp_path, monkeypatch):
     test_store = CarePulseStore(tmp_path / "care.sqlite3")
     monkeypatch.setattr("wp_carepulse.main.store", test_store)
