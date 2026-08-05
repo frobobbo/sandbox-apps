@@ -94,6 +94,35 @@ def test_evaluate_site_does_not_recommend_hsts_before_https_is_enabled():
     assert not any("HSTS" in item for item in result.actions)
 
 
+@pytest.mark.parametrize(
+    ("security_headers", "expects_recommendation"),
+    (
+        ({}, True),
+        ({"x-content-type-options": "invalid"}, True),
+        ({"x-content-type-options": "NoSniff"}, False),
+    ),
+)
+def test_evaluate_site_requires_nosniff_mime_protection_on_http_responses(
+    security_headers, expects_recommendation
+):
+    result = evaluate_site(
+        name="Church",
+        url="https://church.example",
+        http_status=200,
+        latency_ms=240,
+        ssl_days_remaining=72,
+        wordpress_version="6.6.1",
+        update_count=0,
+        backup_age_hours=12,
+        security_headers=security_headers,
+    )
+
+    recommendation = (
+        "Add X-Content-Type-Options: nosniff to prevent MIME sniffing."
+    )
+    assert (recommendation in result.actions) is expects_recommendation
+
+
 def test_evaluate_site_describes_missing_http_response_as_connectivity_failure():
     result = evaluate_site(
         name="Offline",
@@ -127,7 +156,7 @@ def test_evaluate_site_does_not_infer_security_findings_without_http_response():
     assert not any(
         finding in action
         for action in result.actions
-        for finding in ("SSL certificate", "HSTS", "clickjacking")
+        for finding in ("SSL certificate", "HSTS", "clickjacking", "MIME sniffing")
     )
 
 
@@ -393,7 +422,17 @@ def test_summarize_report_prioritizes_sites_needing_attention():
     checks = [
         evaluate_site("Healthy", "https://healthy.example", 200, 100, 90, "6.6", 0, 10, {}),
         evaluate_site("Urgent", "https://urgent.example", 500, 2000, 3, "6.2", 5, 120, {}),
-        evaluate_site("Maintenance", "https://maintenance.example", 200, 1300, 40, "6.5", 3, 48, {}),
+        evaluate_site(
+            "Maintenance",
+            "https://maintenance.example",
+            200,
+            1300,
+            40,
+            "6.5",
+            3,
+            48,
+            {"x-content-type-options": "nosniff"},
+        ),
     ]
 
     report = summarize_report(checks)
@@ -507,6 +546,7 @@ def test_report_uses_saved_check_results_without_recalculating(tmp_path, monkeyp
         {
             "strict-transport-security": "max-age=31536000",
             "x-frame-options": "SAMEORIGIN",
+            "x-content-type-options": "nosniff",
         },
     )
     test_store.save_check(site_id, check)

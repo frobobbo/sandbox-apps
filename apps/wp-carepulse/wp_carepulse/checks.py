@@ -58,6 +58,8 @@ def evaluate_site(name: str, url: str, http_status: int, latency_ms: int, ssl_da
         score -= 4; actions.append('Add or verify HSTS security header.')
     if has_http_response and 'x-frame-options' not in headers and 'content-security-policy' not in headers:
         score -= 4; actions.append('Add clickjacking protection header.')
+    if has_http_response and headers.get('x-content-type-options', '').strip().lower() != 'nosniff':
+        score -= 4; actions.append('Add X-Content-Type-Options: nosniff to prevent MIME sniffing.')
     score = max(0, min(100, score)); status = _status_from_score(score)
     if status == 'green': summary = f'{name} looks healthy. Minor recommendations can be handled during normal maintenance.'
     elif status == 'yellow': summary = f'{name} is stable but has maintenance items to schedule.'

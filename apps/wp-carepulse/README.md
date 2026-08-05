@@ -10,7 +10,7 @@ Client-facing WordPress care monitoring/reporting MVP.
 - Reject blank site names plus blank, hostless, credential-style, or malformed-port URLs before saving a site.
 - Restrict manual check HTTP status entries to the valid `100`–`599` range in both the dashboard and API.
 - Reject impossible negative latency, SSL-days-remaining, update-count, and backup-age measurements in both the dashboard and API.
-- Score uptime, SSL, latency, WordPress updates, backup freshness, and headers.
+- Score uptime, SSL, latency, WordPress updates, backup freshness, and security headers, including HSTS, clickjacking protection, and `X-Content-Type-Options: nosniff`.
 - Mark WordPress update and backup metrics from basic automated HTTP checks as unverified, show them as `Not checked` on the dashboard, and include a verification action in client reports instead of presenting placeholder zeroes as confirmed facts.
 - Recommend enabling HTTPS for plain-HTTP sites without premature certificate-renewal or HSTS advice.
 - Preserve actual HTTP error status codes (such as 404 or 503) and their response security headers in automated checks, while describing DNS, TLS, timeout, and connection failures as a missing HTTP response without inferring unverified SSL or security-header findings.
