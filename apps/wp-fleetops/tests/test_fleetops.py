@@ -181,6 +181,14 @@ def test_dashboard_links_to_csv_export():
     assert 'href="/export.csv"' in response.text
 
 
+def test_dashboard_advertises_snapshot_text_limits():
+    response = make_test_client().get("/")
+
+    assert response.status_code == 200
+    assert "<input name='name' maxlength='200'" in response.text
+    assert "<input name='url' maxlength='2048'" in response.text
+
+
 def test_dashboard_sends_defensive_browser_headers():
     response = make_test_client().get("/")
 
@@ -268,6 +276,21 @@ def test_snapshot_rejects_whitespace_only_site_names(tmp_path, monkeypatch):
     assert main.store.latest_dashboard() == []
 
 
+def test_snapshot_rejects_site_names_longer_than_200_characters(tmp_path, monkeypatch):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "store", FleetOpsStore(tmp_path / "fleet.sqlite3"))
+
+    response = make_test_client().post(
+        "/snapshot",
+        data=valid_snapshot_payload(name="x" * 201),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+    assert main.store.latest_dashboard() == []
+
+
 def test_snapshot_rejects_non_http_urls():
     client = make_test_client()
 
@@ -278,6 +301,21 @@ def test_snapshot_rejects_non_http_urls():
     )
 
     assert response.status_code == 422
+
+
+def test_snapshot_rejects_urls_longer_than_2048_characters(tmp_path, monkeypatch):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "store", FleetOpsStore(tmp_path / "fleet.sqlite3"))
+
+    response = make_test_client().post(
+        "/snapshot",
+        data=valid_snapshot_payload(url="https://" + "a" * 2041),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+    assert main.store.latest_dashboard() == []
 
 
 def test_snapshot_rejects_urls_without_a_hostname(tmp_path, monkeypatch):
