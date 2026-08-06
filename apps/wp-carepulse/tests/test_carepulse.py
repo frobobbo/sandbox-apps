@@ -123,6 +123,22 @@ def test_evaluate_site_requires_nosniff_mime_protection_on_http_responses(
     assert (recommendation in result.actions) is expects_recommendation
 
 
+def test_evaluate_site_requires_frame_ancestors_csp_for_clickjacking_protection():
+    result = evaluate_site(
+        name="Church",
+        url="https://church.example",
+        http_status=200,
+        latency_ms=240,
+        ssl_days_remaining=72,
+        wordpress_version="6.6.1",
+        update_count=0,
+        backup_age_hours=12,
+        security_headers={"content-security-policy": "default-src 'self'"},
+    )
+
+    assert "Add clickjacking protection header." in result.actions
+
+
 def test_evaluate_site_describes_missing_http_response_as_connectivity_failure():
     result = evaluate_site(
         name="Offline",

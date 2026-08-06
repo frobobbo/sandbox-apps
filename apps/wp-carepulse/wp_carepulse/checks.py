@@ -56,7 +56,10 @@ def evaluate_site(name: str, url: str, http_status: int, latency_ms: int, ssl_da
         score -= 8; actions.append(f'Check backup freshness: latest backup is {backup_age_hours} hours old.')
     if has_http_response and urlparse(url).scheme.lower() == 'https' and 'strict-transport-security' not in headers:
         score -= 4; actions.append('Add or verify HSTS security header.')
-    if has_http_response and 'x-frame-options' not in headers and 'content-security-policy' not in headers:
+    if has_http_response and 'x-frame-options' not in headers and not any(
+        directive.strip().lower().partition(' ')[0] == 'frame-ancestors'
+        for directive in headers.get('content-security-policy', '').split(';')
+    ):
         score -= 4; actions.append('Add clickjacking protection header.')
     if has_http_response and headers.get('x-content-type-options', '').strip().lower() != 'nosniff':
         score -= 4; actions.append('Add X-Content-Type-Options: nosniff to prevent MIME sniffing.')
