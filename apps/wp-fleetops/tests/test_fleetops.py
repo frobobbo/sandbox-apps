@@ -27,6 +27,22 @@ def test_normalize_site_canonicalizes_url_and_name_for_deduplication():
     assert normalized.response_ms == site.response_ms
 
 
+def test_normalize_site_removes_default_https_port_for_deduplication():
+    site = FleetSite("Secure", "https://secure.example:443/", True, 80, 0, 10, 240, 4)
+
+    normalized = normalize_site(site)
+
+    assert normalized.url == "https://secure.example"
+
+
+def test_normalize_site_removes_default_http_port_for_deduplication():
+    site = FleetSite("Legacy", "http://legacy.example:80/", True, 80, 0, 10, 240, 4)
+
+    normalized = normalize_site(site)
+
+    assert normalized.url == "http://legacy.example"
+
+
 def test_generate_alerts_catches_operational_risks():
     site = FleetSite(name="Client", url="https://client.example", uptime_ok=False, ssl_days=5, wp_updates=6, backup_age_hours=100, response_ms=2600, security_header_count=0)
 

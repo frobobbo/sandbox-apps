@@ -13,7 +13,13 @@ class Alert:
 
 def normalize_site(site: FleetSite) -> FleetSite:
     parsed = urlsplit(site.url.strip())
-    url = urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), parsed.path.rstrip('/'), parsed.query, parsed.fragment))
+    scheme = parsed.scheme.lower()
+    netloc = parsed.netloc.lower()
+    if scheme == 'https' and netloc.endswith(':443'):
+        netloc = netloc[:-4]
+    elif scheme == 'http' and netloc.endswith(':80'):
+        netloc = netloc[:-3]
+    url = urlunsplit((scheme, netloc, parsed.path.rstrip('/'), parsed.query, parsed.fragment))
     return FleetSite(site.name.strip(), url, site.uptime_ok, site.ssl_days, site.wp_updates, site.backup_age_hours, site.response_ms, site.security_header_count)
 
 

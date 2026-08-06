@@ -13,7 +13,7 @@ Kubernetes/homelab-oriented WordPress fleet operations MVP.
 - Kubernetes-friendly `/health` and `/ready` probes; readiness returns HTTP 503 with dependency statuses when the database is unavailable or a required template is missing.
 - Reject blank site names, site names over 200 characters, URLs over 2,048 characters, negative or SQLite-out-of-range operational metrics, non-HTTP(S) site URLs, malformed URLs without a hostname or valid port, and URLs containing embedded credentials before snapshots can be persisted or exported. The dashboard form advertises the same text limits for immediate browser feedback.
 - Record an unchecked uptime checkbox as a down site so outage snapshots trigger critical alerts.
-- Canonicalize stored site names and URLs so mixed-case hosts or trailing slashes update the same fleet record.
+- Canonicalize stored site names and URLs so mixed-case hosts, trailing slashes, or explicit HTTP/HTTPS default ports update the same fleet record.
 
 ## Run
 ```bash
