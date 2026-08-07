@@ -7,7 +7,7 @@ Kubernetes/homelab-oriented WordPress fleet operations MVP.
 - Calculate health scores.
 - Generate critical/warning/info alerts, including a critical escalation at 10 pending WordPress updates, a 30-day SSL renewal warning window, backup-age warnings after 36 hours that escalate to critical after 72 hours, and homepage latency warnings above 1.5 seconds that escalate to critical at 5 seconds.
 - Produce Markdown maintenance reports with fleet-level average scoring, alert totals by severity, lowest-scoring sites listed first, and any site with a critical alert clearly marked as needing attention regardless of its numeric score.
-- Export the latest dashboard as machine-readable JSON with fleet summary totals.
+- Export the latest dashboard as machine-readable JSON with fleet summary totals, including alert counts by severity.
 - Download spreadsheet-ready CSV fleet rows with alert counts and formula-injection protection.
 - Simple FastAPI/Jinja dashboard with defensive content-type, framing, referrer, and Content Security Policy headers, plus `Cache-Control: no-store` to prevent stale fleet data from being cached.
 - Kubernetes-friendly `/health` and `/ready` probes; readiness returns HTTP 503 with dependency statuses when the database is unavailable or a required template is missing.
@@ -26,5 +26,5 @@ Open http://127.0.0.1:8020
 
 Useful endpoints:
 - `GET /report` returns the Markdown maintenance report.
-- `GET /export.json` returns the latest dashboard rows plus `sites`, `critical_sites`, and `average_score` summary fields for automation.
+- `GET /export.json` returns the latest dashboard rows plus `sites`, `critical_sites`, `average_score`, and nested critical/warning/info `alerts` summary fields for automation.
 - `GET /export.csv` downloads the latest fleet rows, operational metrics, alert counts, and capture timestamps as `wp-fleetops.csv`.

@@ -455,10 +455,54 @@ def test_export_returns_machine_readable_dashboard_with_summary(tmp_path):
 
     assert export_response.status_code == 200
     payload = export_response.json()
-    assert payload["summary"] == {"sites": 1, "critical_sites": 1, "average_score": 55}
+    assert payload["summary"] == {
+        "sites": 1,
+        "critical_sites": 1,
+        "average_score": 55,
+        "alerts": {"critical": 2, "warning": 0, "info": 0},
+    }
     assert payload["sites"][0]["name"] == "Exported Site"
     assert payload["sites"][0]["url"] == "https://exported.example"
     assert any(alert["severity"] == "critical" for alert in payload["sites"][0]["alerts"])
+
+
+def test_json_export_summarizes_alerts_by_severity(tmp_path, monkeypatch):
+    from wp_fleetops import main
+
+    monkeypatch.setattr(main, "store", FleetOpsStore(tmp_path / "fleet.sqlite3"))
+    client = make_test_client()
+    critical_response = client.post(
+        "/snapshot",
+        data=valid_snapshot_payload(
+            name="Critical Site",
+            url="https://critical.example",
+            ssl_days="5",
+            backup_age_hours="96",
+        ),
+        follow_redirects=False,
+    )
+    warning_response = client.post(
+        "/snapshot",
+        data=valid_snapshot_payload(
+            name="Warning Site",
+            url="https://warning.example",
+            ssl_days="20",
+            backup_age_hours="48",
+            security_header_count="1",
+        ),
+        follow_redirects=False,
+    )
+    assert critical_response.status_code == 303
+    assert warning_response.status_code == 303
+
+    response = client.get("/export.json")
+
+    assert response.status_code == 200
+    assert response.json()["summary"]["alerts"] == {
+        "critical": 2,
+        "warning": 2,
+        "info": 1,
+    }
 
 
 def test_csv_export_downloads_spreadsheet_ready_fleet_rows(tmp_path, monkeypatch):

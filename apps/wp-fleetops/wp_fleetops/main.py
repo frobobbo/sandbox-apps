@@ -64,11 +64,20 @@ def report():
 def export_json():
     rows=store.latest_dashboard()
     scores=[r['score'] for r in rows]
+    alert_counts={
+        severity: sum(
+            alert['severity'] == severity
+            for row in rows
+            for alert in row['alerts']
+        )
+        for severity in ('critical', 'warning', 'info')
+    }
     return {
         'summary': {
             'sites': len(rows),
             'critical_sites': sum(1 for r in rows if any(a['severity'] == 'critical' for a in r['alerts'])),
             'average_score': round(sum(scores)/len(scores)) if scores else 0,
+            'alerts': alert_counts,
         },
         'sites': rows,
     }
