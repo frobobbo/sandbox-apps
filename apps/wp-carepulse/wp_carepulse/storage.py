@@ -20,7 +20,13 @@ def normalize_site_url(url: str) -> str:
     default_port = {'http': 80, 'https': 443}.get(scheme)
     if default_port is not None and port == default_port:
         netloc = netloc.rsplit(':', 1)[0]
-    if scheme not in {'http', 'https'} or not parsed.hostname or parsed.username or parsed.password:
+    if (
+        scheme not in {'http', 'https'}
+        or not parsed.hostname
+        or any(character.isspace() for character in parsed.hostname)
+        or parsed.username
+        or parsed.password
+    ):
         raise ValueError('Please enter a valid site URL with a host name.')
     path = parsed.path
     if path == '/' and not parsed.query:

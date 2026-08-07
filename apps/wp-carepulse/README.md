@@ -7,7 +7,7 @@ Client-facing WordPress care monitoring/reporting MVP.
 - Run automated homepage, TLS certificate, latency, and security-header checks directly from the dashboard, or record a manual check when wp-admin data is available.
 - Normalize bare site domains, mixed-case hosts, explicit default ports (`:443` for HTTPS and `:80` for HTTP), and URL fragments (such as `#contact`) so duplicate entries do not split history and both automatic and manual reports use the canonical URL.
 - Refresh the saved site name and any provided client when an existing URL is added again, preserving both its check history and an existing client when the optional field is left blank.
-- Reject blank site names plus blank, hostless, credential-style, or malformed-port URLs before saving a site.
+- Reject blank site names plus blank, hostless, credential-style, whitespace-containing, or malformed-port URLs before saving a site.
 - Restrict manual check HTTP status entries to the valid `100`–`599` range in both the dashboard and API.
 - Reject impossible negative latency, SSL-days-remaining, update-count, and backup-age measurements in both the dashboard and API.
 - Score uptime, SSL, latency, WordPress updates, backup freshness, and security headers, including HSTS, clickjacking protection through `X-Frame-Options` or a CSP `frame-ancestors` directive, and `X-Content-Type-Options: nosniff`.
