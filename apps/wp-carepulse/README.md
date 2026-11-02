@@ -16,6 +16,7 @@ Client-facing WordPress care monitoring/reporting MVP.
 - Preserve actual HTTP error status codes (such as 404 or 503) and their response security headers in automated checks, while describing DNS, TLS, timeout, and connection failures as a missing HTTP response without inferring unverified SSL or security-header findings.
 - Store latest checks in SQLite.
 - Expose a storage-aware `/health` readiness endpoint that returns HTTP 503 when SQLite is unavailable.
+- Send `X-Content-Type-Options: nosniff` on app responses to prevent browser MIME sniffing.
 - Generate a monthly Markdown care report from the exact saved check results, preserving the recorded score, recommendations, and a readable UTC timestamp for each site's latest check.
 - Simple FastAPI/Jinja dashboard with recommended actions visible beside each latest check.
 

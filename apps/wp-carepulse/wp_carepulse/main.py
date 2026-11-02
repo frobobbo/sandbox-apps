@@ -12,6 +12,11 @@ BASE = Path(__file__).resolve().parent.parent
 app = FastAPI(title='WP CarePulse')
 templates = Jinja2Templates(directory=str(BASE / 'templates'))
 store = CarePulseStore(BASE / 'data' / 'carepulse.sqlite3')
+@app.middleware('http')
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 @app.get('/health')
 def health():
     try:
